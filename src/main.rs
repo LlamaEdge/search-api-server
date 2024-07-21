@@ -3,13 +3,14 @@ extern crate log;
 
 mod backend;
 mod error;
-mod search;
+mod google_search;
 mod utils;
 
 use anyhow::Result;
-use chat_prompts::{MergeRagContextPolicy, PromptTemplateType};
+use chat_prompts::PromptTemplateType;
 use clap::Parser;
 use error::ServerError;
+use google_search::google_parser;
 use hyper::{
     body::HttpBody,
     header,
@@ -18,22 +19,20 @@ use hyper::{
     Body, Request, Response, Server, StatusCode,
 };
 use llama_core::{
-    error::SearchError,
-    search::{ContentType, SearchConfig, SearchOutput, SearchResult},
+    search::{ContentType, SearchConfig},
     MetadataBuilder,
 };
 use once_cell::sync::OnceCell;
-use search::google_parser;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, net::SocketAddr, path::PathBuf};
 use utils::LogLevel;
 
 type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
 
-// global system prompt
-pub(crate) static GLOBAL_RAG_PROMPT: OnceCell<String> = OnceCell::new();
 // server info
 pub(crate) static SERVER_INFO: OnceCell<ServerInfo> = OnceCell::new();
+// default SearchConfig
+pub(crate) static SEARCH_CONFIG: OnceCell<SearchConfig> = OnceCell::new();
 
 // default socket address
 const DEFAULT_SOCKET_ADDRESS: &str = "0.0.0.0:8080";
@@ -493,6 +492,22 @@ async fn main() -> Result<(), error::ServerError> {
         async move { Ok::<_, Error>(service_fn(move |req| handle_request(req, web_ui.clone()))) }
     });
 
+    let google_config = SearchConfig::new(
+        "google".to_owned(),
+        1,
+        1000,
+        "http://localhost:3000/search".to_owned(),
+        ContentType::JSON,
+        ContentType::JSON,
+        "POST".to_owned(),
+        None,
+        google_parser,
+    );
+
+    SEARCH_CONFIG
+        .set(google_config)
+        .map_err(|_| ServerError::Operation("Failed to set `SEARCH_CONFIG`.".to_owned()))?;
+
     let server = Server::bind(&addr).serve(new_service);
 
     // println!(
@@ -571,33 +586,6 @@ async fn main() -> Result<(), error::ServerError> {
 
     //    policy = MergeRagContextPolicy::LastUserMessage;
     //}
-
-    //let google_config = SearchConfig::new(
-    //    "google".to_owned(),
-    //    5,
-    //    1000,
-    //    "http://localhost:3000/search".to_owned(),
-    //    ContentType::JSON,
-    //    ContentType::JSON,
-    //    "POST".to_owned(),
-    //    None,
-    //    google_parser,
-    //);
-
-    //#[derive(Serialize)]
-    //struct GoogleSearchInput {
-    //    term: String,
-    //    engine: String,
-    //    maxSearchResults: u8,
-    //}
-
-    //google_config
-    //    .perform_search(&GoogleSearchInput {
-    //        term: "Megami Tensei".to_owned(),
-    //        engine: "google".to_owned(),
-    //        maxSearchResults: 5,
-    //    })
-    //    .await;
 
     //Ok(())
 }

@@ -2,6 +2,15 @@ use llama_core::{
     error::SearchError,
     search::{SearchOutput, SearchResult},
 };
+use serde::Serialize;
+
+#[allow(non_snake_case)]
+#[derive(Serialize)]
+pub struct GoogleSearchInput {
+    pub term: String,
+    pub engine: String,
+    pub maxSearchResults: u8,
+}
 
 pub fn google_parser(raw_results: &serde_json::Value) -> Result<SearchOutput, SearchError> {
     let results_array = match raw_results.as_array() {

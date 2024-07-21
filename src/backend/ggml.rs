@@ -1,6 +1,10 @@
-use crate::{error, utils::gen_chat_id, SERVER_INFO};
+use crate::google_search::GoogleSearchInput;
+use crate::{error, utils::gen_chat_id, SEARCH_CONFIG, SERVER_INFO};
 use endpoints::{
-    chat::ChatCompletionRequest,
+    chat::{
+        ChatCompletionRequest, ChatCompletionRequestMessage, ChatCompletionSystemMessage,
+        ChatCompletionUserMessageContent, ContentPart,
+    },
     completions::CompletionRequest,
     embeddings::EmbeddingRequest,
     files::{DeleteFileStatus, FileObject, ListFilesResponse},
@@ -8,6 +12,7 @@ use endpoints::{
 };
 use futures_util::TryStreamExt;
 use hyper::{body::to_bytes, Body, Method, Request, Response};
+use llama_core::search::SearchOutput;
 use multipart::server::{Multipart, ReadEntry, ReadEntryResult};
 use multipart_2021 as multipart;
 use std::{
@@ -306,6 +311,78 @@ pub(crate) async fn chat_completions_handler(mut req: Request<Body>) -> Response
         chat_request.user = Some(gen_chat_id())
     };
     let id = chat_request.user.clone().unwrap();
+
+    // SEARCH HERE
+    match chat_request
+        .messages
+        .get(chat_request.messages.len() - 1)
+        .unwrap()
+    {
+        ChatCompletionRequestMessage::User(ref message) => {
+            let search_config = match SEARCH_CONFIG.get() {
+                Some(sc) => sc,
+                None => {
+                    let err_msg = format!("Failed to obtain SEARCH_CONFIG. Was it set?");
+                    error!(target: "chat_completions_handler", "{}", &err_msg);
+
+                    return error::internal_server_error(err_msg);
+                }
+            };
+            info!(target: "chat_completions_handler", "performing search");
+
+            let user_message_content = match message.content() {
+                ChatCompletionUserMessageContent::Text(message) => message.to_owned(),
+                ChatCompletionUserMessageContent::Parts(parts) => {
+                    let mut message: String = "".to_owned();
+                    for part in parts {
+                        match part {
+                            ContentPart::Text(message_part) => {
+                                message.push_str(message_part.text());
+                            }
+                            ContentPart::Image(_) => {}
+                        }
+                    }
+                    message
+                }
+            };
+
+            let search_input = GoogleSearchInput {
+                term: user_message_content,
+                maxSearchResults: search_config.max_search_results,
+                engine: search_config.search_engine.clone(),
+            };
+
+            let search_output: SearchOutput =
+                match search_config.perform_search(&search_input).await {
+                    Ok(search_output) => search_output,
+                    Err(e) => {
+                        let err_msg =
+                            format!("Failed to perform search on SEACH_CONFIG: {msg}", msg = e);
+                        error!(target: "chat_completions_handler", "{}", &err_msg);
+
+                        return error::internal_server_error(err_msg);
+                    }
+                };
+
+            let mut search_output_results: String =
+                "Use the following context to answer the user's question:\n\n".to_owned();
+
+            for result in search_output.results {
+                search_output_results.push_str(result.text_content.as_str());
+                search_output_results.push_str("\n\n");
+            }
+
+            let system_search_result_message =
+                ChatCompletionSystemMessage::new(search_output_results, None);
+            chat_request.messages.insert(
+                chat_request.messages.len() - 1,
+                ChatCompletionRequestMessage::System(system_search_result_message),
+            )
+        }
+        _ => {}
+    }
+
+    //SEARCH HERE
 
     // log user id
     info!(target: "chat_completions_handler", "user: {}", chat_request.user.clone().unwrap());
