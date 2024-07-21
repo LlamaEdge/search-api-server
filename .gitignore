@@ -1,6 +1,18 @@
-Llama-2-7b-chat-hf-Q5_K_M.gguf
-all-MiniLM-L6-v2-ggml-model-f16.gguf
+*.gguf
 
+connection
+llama_core
+llama-core
+server_config
+models_handler
+request
+response
+chat_completions_stream
+chat_completions_handler
+
+/chatbot-ui
 /target
-execute.sh
+/debug
 Cargo.lock
+
+execute.sh

@@ -1,4 +1,9 @@
 use serde::{Deserialize, Serialize};
+
+pub(crate) fn gen_chat_id() -> String {
+    format!("chatcmpl-{}", uuid::Uuid::new_v4())
+}
+
 #[derive(
     Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, clap::ValueEnum, Serialize, Deserialize,
 )]
