@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 log = { version = "0.4.22", features = ["kv_serde", "std", "kv"] }
 endpoints = { path = "../LlamaEdge/api-server/endpoints"}
-llama-core = { path = "../LlamaEdge/api-server/llama-core", features = ["logging"] }
+llama-core = { path = "../LlamaEdge/api-server/llama-core", features = ["logging", "search"] }
 futures = { version = "0.3.6", default-features = false, features = ["async-await", "std"] }
 either = "1.13.0"
 thiserror = "1"
