@@ -3,14 +3,15 @@ extern crate log;
 
 mod backend;
 mod error;
-mod google_search;
+//mod google_search;
+mod tavily_search;
 mod utils;
 
 use anyhow::Result;
 use chat_prompts::PromptTemplateType;
 use clap::Parser;
 use error::ServerError;
-use google_search::google_parser;
+//use google_search::google_parser;
 use hyper::{
     body::HttpBody,
     header,
@@ -25,6 +26,7 @@ use llama_core::{
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, net::SocketAddr, path::PathBuf};
+use tavily_search::tavily_parser;
 use utils::LogLevel;
 
 type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
@@ -114,6 +116,12 @@ struct Cli {
     /// Whether to enable RAG functionality (currently unimplemented)
     #[arg(long)]
     enable_rag: bool,
+    /// Whether to enable RAG functionality (currently unimplemented)
+    #[arg(long, default_value = "5")]
+    max_search_results: u8,
+    /// Whether to enable RAG functionality (currently unimplemented)
+    #[arg(long, default_value = "")]
+    api_key: String,
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -492,20 +500,32 @@ async fn main() -> Result<(), error::ServerError> {
         async move { Ok::<_, Error>(service_fn(move |req| handle_request(req, web_ui.clone()))) }
     });
 
-    let google_config = SearchConfig::new(
-        "google".to_owned(),
-        1,
+    //let google_config = SearchConfig::new(
+    //    "google".to_owned(),
+    //    cli.max_search_results,
+    //    1000,
+    //    "http://localhost:3000/search".to_owned(),
+    //    ContentType::JSON,
+    //    ContentType::JSON,
+    //    "POST".to_owned(),
+    //    None,
+    //    google_parser,
+    //);
+
+    let tavily_config = SearchConfig::new(
+        cli.api_key,
+        cli.max_search_results,
         1000,
-        "http://localhost:3000/search".to_owned(),
+        "http://api.tavily.com/search".to_owned(),
         ContentType::JSON,
         ContentType::JSON,
         "POST".to_owned(),
         None,
-        google_parser,
+        tavily_parser,
     );
 
     SEARCH_CONFIG
-        .set(google_config)
+        .set(tavily_config)
         .map_err(|_| ServerError::Operation("Failed to set `SEARCH_CONFIG`.".to_owned()))?;
 
     let server = Server::bind(&addr).serve(new_service);
