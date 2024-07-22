@@ -4,13 +4,16 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+#endpoints = { path = "../LlamaEdge/api-server/endpoints"}
+#llama-core = { path = "../LlamaEdge/api-server/llama-core", features = ["logging", "search"] }
+#chat-prompts = { path = "../LlamaEdge/api-server/chat-prompts"}
+endpoints = { git = "https://github.com/suryyyansh/LlamaEdge.git", branch = "dev"}
+llama-core = { git = "https://github.com/suryyyansh/LlamaEdge.git", branch = "dev", features = ["logging", "search"]}
+chat-prompts = { git = "https://github.com/suryyyansh/LlamaEdge.git", branch = "dev"}
 log = { version = "0.4.22", features = ["kv_serde", "std", "kv"] }
-endpoints = { path = "../LlamaEdge/api-server/endpoints"}
-llama-core = { path = "../LlamaEdge/api-server/llama-core", features = ["logging", "search"] }
 futures = { version = "0.3.6", default-features = false, features = ["async-await", "std"] }
 either = "1.13.0"
 thiserror = "1"
-chat-prompts = { path = "../LlamaEdge/api-server/chat-prompts"}
 hyper_wasi = { version = "0.15", features = ["full"] }
 tokio_wasi = { version = "1", features = ["full"] }
 once_cell = "1.18"

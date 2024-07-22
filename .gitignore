@@ -10,6 +10,7 @@ response
 chat_completions_stream
 chat_completions_handler
 search
+!search/
 
 /chatbot-ui
 /target

@@ -1,5 +1,5 @@
 //use crate::google_search::GoogleSearchInput;
-use crate::tavily_search::TavilySearchInput;
+use crate::search::tavily_search;
 use crate::{error, utils::gen_chat_id, SEARCH_CONFIG, SERVER_INFO};
 use endpoints::{
     chat::{
@@ -347,7 +347,7 @@ pub(crate) async fn chat_completions_handler(mut req: Request<Body>) -> Response
                 }
             };
 
-            let search_input = TavilySearchInput {
+            let search_input = tavily_search::TavilySearchInput {
                 api_key: search_config.search_engine.clone(),
                 include_answer: false,
                 include_images: false,

@@ -6,13 +6,14 @@ use serde::Serialize;
 
 #[allow(non_snake_case)]
 #[derive(Serialize)]
-pub struct GoogleSearchInput {
+pub struct LocalGoogleSearchInput {
     pub term: String,
     pub engine: String,
     pub maxSearchResults: u8,
 }
 
-pub fn google_parser(raw_results: &serde_json::Value) -> Result<SearchOutput, SearchError> {
+#[allow(dead_code)]
+pub fn local_google_parser(raw_results: &serde_json::Value) -> Result<SearchOutput, SearchError> {
     let results_array = match raw_results.as_array() {
         Some(array) => array,
         None => {

@@ -3,15 +3,14 @@ extern crate log;
 
 mod backend;
 mod error;
-//mod google_search;
-mod tavily_search;
+mod search;
 mod utils;
 
+use crate::search::tavily_search;
 use anyhow::Result;
 use chat_prompts::PromptTemplateType;
 use clap::Parser;
 use error::ServerError;
-//use google_search::google_parser;
 use hyper::{
     body::HttpBody,
     header,
@@ -26,7 +25,6 @@ use llama_core::{
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, net::SocketAddr, path::PathBuf};
-use tavily_search::tavily_parser;
 use utils::LogLevel;
 
 type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
@@ -521,7 +519,7 @@ async fn main() -> Result<(), error::ServerError> {
         ContentType::JSON,
         "POST".to_owned(),
         None,
-        tavily_parser,
+        tavily_search::tavily_parser,
     );
 
     SEARCH_CONFIG
