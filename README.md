@@ -427,4 +427,57 @@ For the purpose of demonstration, we use the [Llama-2-7b-chat-hf-Q5_K_M.gguf](ht
 
 ## Modify
 
+The crux of the search-api-server is `struct SearchConfig` from the `llama-core` crate when compiled with the `search` feature.
+
+This is how it works:
+
+1. Decide the search API (JSON based, supports HTTP) to use. There are many out there to choose from. We currently use Tavily by default.
+
+2. Crate a new file for the search endpoint and place it in it's own file under `search/`. Don't forget to `mod <filename>` it in `src/main.rs.`.
+
+3. Next, we'll make a `fn` in the new file that converts the raw JSON output of the search endpoint for a given query to a `struct SearchOutput` object.
+  ```rust
+  pub fn custom_search_parser(
+      raw_results: &serde_json::Value,
+  ) -> Result<SearchOutput, Box<dyn std::error::Error>> {
+  
+    // conversion logic that converts the raw results from the server into a SearchOutput. 
+    let search_output: SearchOutput {
+      url: String = <assign>
+      site_name: String = <assign>
+      text_content: String = <assign>
+    }
+    Ok(search_output);
+  }
+  ```
+
+4. Next, we'll define a `struct CustomSearchInput`. This `struct` must be `Serialize`-able, as the fields will be converted directly to JSON. Later, we'll pass an instance of this struct to the `&SearchConfig.perform_search()` function to actually perform the search:
+  ```rust
+  #[derive(Serialize)]
+  struct CustomSearchInput { 
+    // sample fields. Change according to your search endpoint.
+    term: String,
+    max_search_results: u8,
+    depth: String,
+    api_key: String
+  }
+  ```
+
+5. The search results get included into the conversation as a System Message in `fn chat_completion_handler` in `backend/ggml.rs`.
+  ```rust
+  let search_input = CustomSearchInput {
+      // assign fields
+      parser: custom_search_parser()
+  }
+  ```
+
+6. The we need to place the struct SearchConfig in `src/main.rs` with our own.
+ ```rust
+ let search_config = SearchConfig {
+     // fields
+ }
+ ```
+
+7. Now, upon recompiling the server and running it, try asking the LLM a question.
+
 *(In progress)*
