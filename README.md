@@ -1,138 +1,456 @@
-### Please use the --api-key flag to pass your Tavily API key, or use the [local search server](https://github.com/suryyyansh/local-search-server) (The relevant bits have been commented out, just add a serializable `search_input` to pass to the `parser()` function)
+### Be sure to use your tavily API key using `--search-api-key`
 
----
-# LlamaEdge
+# LlamaEdge-RAG API Server
 
-The LlamaEdge project makes it easy for you to run LLM inference apps and create OpenAI-compatible API services for the Llama2 series of LLMs locally.
+<!-- @import "[TOC]" {cmd="toc" depthFrom=1 depthTo=6 orderedList=false} -->
 
-## Quick start
+<!-- code_chunk_output -->
 
-Enhance your onboarding experience and quickly get started with LlamaEdge using the following scripts.
+- [LlamaEdge-RAG API Server](#llamaedge-rag-api-server)
+  - [Introduction](#introduction)
+    - [Endpoints](#endpoints)
+      - [`/v1/models` endpoint](#v1models-endpoint)
+      - [`/v1/chat/completions` endpoint](#v1chatcompletions-endpoint)
+      - [`/v1/files` endpoint](#v1files-endpoint)
+      - [`/v1/chunks` endpoint](#v1chunks-endpoint)
+      - [`/v1/embeddings` endpoint](#v1embeddings-endpoint)
+      - [`/v1/create/rag` endpoint](#v1createrag-endpoint)
+      - [`/v1/info` endpoint](#v1info-endpoint)
+  - [Setup](#setup)
+  - [Build](#build)
+  - [Execute](#execute)
 
-#1: Quick start without any argument
+<!-- /code_chunk_output -->
 
-```
-bash <(curl -sSfL 'https://raw.githubusercontent.com/LlamaEdge/LlamaEdge/main/run-llm.sh')
-```
+## Introduction
 
-It will download and start the [Gemma-2-9b-it](https://huggingface.co/second-state/gemma-2-9b-it-GGUF) model automatically. Open http://127.0.0.1:8080 in your browser and start chatting right away!
+LlamaEdge-RAG API server provides a group of OpenAI-compatible web APIs for the Retrieval-Augmented Generation (RAG) applications. The server is implemented in WebAssembly (Wasm) and runs on [WasmEdge Runtime](https://github.com/WasmEdge/WasmEdge).
 
+### Endpoints
 
-#2: Specify a model using `--model model_name`
+#### `/v1/models` endpoint
 
-```
-bash <(curl -sSfL 'https://raw.githubusercontent.com/LlamaEdge/LlamaEdge/main/run-llm.sh') --model llama-2-7b-chat
-```
+`rag-api-server` provides a POST API `/v1/models` to list currently available models.
 
-The script will start an API server with a chatbot UI based on your choice. Open http://127.0.0.1:8080 in your browser and start chatting right away!
+<details> <summary> Example </summary>
 
-To explore all the available models, please use the following command line
+You can use `curl` to test it on a new terminal:
 
-```
-bash <(curl -sSfL 'https://raw.githubusercontent.com/LlamaEdge/LlamaEdge/main/run-llm.sh') --model help
-```
-#3:  Interactively choose and confirm all steps in the script using using `--interactive` flag
-
-```
-bash <(curl -sSfL 'https://raw.githubusercontent.com/LlamaEdge/LlamaEdge/main/run-llm.sh') --interactive
-```
-Follow the on-screen instructions to install the WasmEdge Runtime and download your favorite open-source LLM. Then, choose whether you want to chat with the model via the CLI or via a web UI.
-
-[See it in action](https://youtu.be/Hqu-PBqkzDk) | [Docs](https://www.secondstate.io/articles/run-llm-sh/)
-
-## How it works?
-
-The Rust source code for the inference applications are all open source and you can modify and use them freely for your own purposes.
-
-* The folder `simple` contains the source code project to generate text from a prompt using run llama2 models.
-* The folder `chat` contains the source code project to "chat" with a llama2 model on the command line.
-* The folder `api-server` contains the source code project for a web server. It provides an OpenAI-compatible API service, as well as an optional web UI, for llama2 models.
-
-## The tech stack
-
-The [Rust+Wasm stack](https://medium.com/stackademic/why-did-elon-musk-say-that-rust-is-the-language-of-agi-eb36303ce341) provides a strong alternative to Python in AI inference.
-
-* Lightweight. The total runtime size is 30MB.
-* Fast. Full native speed on GPUs.
-* Portable. Single cross-platform binary on different CPUs, GPUs, and OSes.
-* Secure. Sandboxed and isolated execution on untrusted devices.
-* Container-ready. Supported in Docker, containerd, Podman, and Kubernetes.
-
-For more information, please check out [Fast and Portable Llama2 Inference on the Heterogeneous Edge](https://www.secondstate.io/articles/fast-llm-inference/).
-
-## Models
-
-The LlamaEdge project supports all Large Language Models (LLMs) based on the llama2 framework. The model files must be in the GGUF format. We are committed to continuously testing and validating new open-source models that emerge every day.
-
-[Click here](https://huggingface.co/second-state) to see the supported model list with a download link and startup commands for each model. If you have success with other LLMs, don't hesitate to contribute by creating a Pull Request (PR) to help extend this list.
-
-## Platforms
-
-The compiled Wasm file is cross platfrom. You can use the same Wasm file to run the LLM across OSes (e.g., MacOS, Linux, Windows SL), CPUs (e.g., x86, ARM, Apple, RISC-V), and GPUs (e.g., NVIDIA, Apple).
-
-The installer from WasmEdge 0.13.5 will detect NVIDIA CUDA drivers automatically. If CUDA is detected, the installer will always attempt to install a CUDA-enabled version of the plugin. The CUDA support is tested on the following platforms in our automated CI.
-
-* Nvidia Jetson AGX Orin 64GB developer kit
-* Intel i7-10700 + Nvidia GTX 1080 8G GPU
-* AWS EC2 `g5.xlarge` + Nvidia A10G 24G GPU + Amazon deep learning base Ubuntu 20.04
-
-> If you're using CPU only machine, the installer will install the OpenBLAS version of the plugin instead. You may need to install `libopenblas-dev` by `apt update && apt install -y libopenblas-dev`.
-
-## Troubleshooting
-
-Q: Why I got the following errors after starting the API server?
-
-```
-[2024-03-05 16:09:05.800] [error] instantiation failed: module name conflict, Code: 0x60
-[2024-03-05 16:09:05.801] [error]     At AST node: module
+```bash
+curl -X POST http://localhost:8080/v1/models -H 'accept:application/json'
 ```
 
-A: TThe module conflict error is a known issue, and these are false-positive errors. They do not impact your program's functionality.
+If the command runs successfully, you should see the similar output as below in your terminal:
 
-Q: Even though my machine has a large RAM, after asking several questions, I received an error message returns 'Error: Backend Error: WASI-NN'. What should I do?
-
-A: To enable machines with smaller RAM, like 8 GB, to run a 7b model, we've set the context size limit to 512. If your machine has more capacity, you can increase both the context size and batch size up to 4096 using the CLI options available [here](https://github.com/second-state/llama-utils/tree/main/chat#cli-options). Use these commands to adjust the settings:
-
+```json
+{
+    "object":"list",
+    "data":[
+        {
+            "id":"llama-2-chat",
+            "created":1697084821,
+            "object":"model",
+            "owned_by":"Not specified"
+        }
+    ]
+}
 ```
--c, --ctx-size <CTX_SIZE>
--b, --batch-size <BATCH_SIZE>
+
+</details>
+
+#### `/v1/chat/completions` endpoint
+
+Ask a question using OpenAI's JSON message format.
+
+<details> <summary> Example </summary>
+
+```bash
+curl -X POST http://localhost:8080/v1/chat/completions \
+    -H 'accept:application/json' \
+    -H 'Content-Type: application/json' \
+    -d '{"messages":[{"role":"system", "content": "You are a helpful assistant."}, {"role":"user", "content": "Who is Robert Oppenheimer?"}], "model":"llama-2-chat"}'
 ```
 
-Q: After running `apt update && apt install -y libopenblas-dev`, you may encounter the following error:
+Here is the response.
+
+```json
+{
+    "id":"",
+    "object":"chat.completion",
+    "created":1697092593,
+    "model":"llama-2-chat",
+    "choices":[
+        {
+            "index":0,
+            "message":{
+                "role":"assistant",
+                "content":"Robert Oppenheimer was an American theoretical physicist and director of the Manhattan Project, which developed the atomic bomb during World War II. He is widely regarded as one of the most important physicists of the 20th century and is known for his contributions to the development of quantum mechanics and the theory of the atomic nucleus. Oppenheimer was also a prominent figure in the post-war nuclear weapons debate, advocating for international control and regulation of nuclear weapons."
+            },
+            "finish_reason":"stop"
+        }
+    ],
+    "usage":{
+        "prompt_tokens":9,
+        "completion_tokens":12,
+        "total_tokens":21
+    }
+}
+```
+
+</details>
+
+#### `/v1/files` endpoint
+
+In RAG applications, uploading files is a necessary step.
+
+<details> <summary> Example </summary>
+
+The following command upload a text file [paris.txt](https://huggingface.co/datasets/gaianet/paris/raw/main/paris.txt) to the API server via the `/v1/files` endpoint:
+
+```bash
+curl -X POST http://127.0.0.1:8080/v1/files -F "file=@paris.txt"
+```
+
+If the command is successful, you should see the similar output as below in your terminal:
+
+```json
+{
+    "id": "file_4bc24593-2a57-4646-af16-028855e7802e",
+    "bytes": 2161,
+    "created_at": 1711611801,
+    "filename": "paris.txt",
+    "object": "file",
+    "purpose": "assistants"
+}
+```
+
+The `id` and `filename` fields are important for the next step, for example, to segment the uploaded file to chunks for computing embeddings.
+
+</details>
+
+#### `/v1/chunks` endpoint
+
+To segment the uploaded file to chunks for computing embeddings, use the `/v1/chunks` API.
+
+<details> <summary> Example </summary>
+
+The following command sends the uploaded file ID and filename to the API server and gets the chunks:
+
+```bash
+curl -X POST http://localhost:8080/v1/chunks \
+    -H 'accept:application/json' \
+    -H 'Content-Type: application/json' \
+    -d '{"id":"file_4bc24593-2a57-4646-af16-028855e7802e", "filename":"paris.txt", "chunk_capacity":100}'
+```
+
+The following is an example return with the generated chunks:
+
+```json
+{
+    "id": "file_4bc24593-2a57-4646-af16-028855e7802e",
+    "filename": "paris.txt",
+    "chunks": [
+        "Paris, city and capital of France, ..., for Paris has retained its importance as a centre for education and intellectual pursuits.",
+        "Paris’s site at a crossroads ..., drawing to itself much of the talent and vitality of the provinces."
+    ]
+}
+```
+
+</details>
+
+#### `/v1/embeddings` endpoint
+
+To compute embeddings for user query or file chunks, use the `/v1/embeddings` API.
+
+<details> <summary> Example </summary>
+
+The following command sends a query to the API server and gets the embeddings as return:
+
+```bash
+curl -X POST http://localhost:8080/v1/embeddings \
+    -H 'accept:application/json' \
+    -H 'Content-Type: application/json' \
+    -d '{"model": "e5-mistral-7b-instruct-Q5_K_M", "input":["Paris, city and capital of France, ..., for Paris has retained its importance as a centre for education and intellectual pursuits.", "Paris’s site at a crossroads ..., drawing to itself much of the talent and vitality of the provinces."]}'
+```
+
+The embeddings returned are like below:
+
+```json
+{
+    "object": "list",
+    "data": [
+        {
+            "index": 0,
+            "object": "embedding",
+            "embedding": [
+                0.1428378969,
+                -0.0447309874,
+                0.007660218049,
+                ...
+                -0.0128974719,
+                -0.03543198109,
+                0.03974733502,
+                0.00946635101,
+                -0.01531364303
+            ]
+        },
+        {
+            "index": 1,
+            "object": "embedding",
+            "embedding": [
+                0.0697753951,
+                -0.0001159032545,
+                0.02073983476,
+                ...
+                0.03565846011,
+                -0.04550019652,
+                0.02691745944,
+                0.02498772368,
+                -0.003226313973
+            ]
+        }
+    ],
+    "model": "e5-mistral-7b-instruct-Q5_K_M",
+    "usage": {
+        "prompt_tokens": 491,
+        "completion_tokens": 0,
+        "total_tokens": 491
+    }
+}
+```
+
+</details>
+
+#### `/v1/info` endpoint
+
+`/v1/info` endpoint provides the information of the API server, including the version of the server, the parameters of models, and etc.
+
+<details> <summary> Example </summary>
+
+You can use `curl` to test it on a new terminal:
+
+```bash
+curl -X POST http://localhost:8080/v1/info -H 'accept:application/json'
+```
+
+If the command runs successfully, you should see the similar output as below in your terminal:
+
+```json
+{
+  "api_server": {
+    "type": "llama",
+    "version": "0.1.0",
+    "ggml_plugin_version": "b3405 (commit 5e116e8d)",
+    "port": "8080"
+  },
+  "chat_model": {
+    "name": "Llama-2-7b-chat-hf-Q5_K_M",
+    "type": "chat",
+    "ctx_size": 4096,
+    "batch_size": 512,
+    "prompt_template": "Llama2Chat",
+    "n_predict": 1024,
+    "n_gpu_layers": 100,
+    "temperature": 1.0,
+    "top_p": 1.0,
+    "repeat_penalty": 1.1,
+    "presence_penalty": 0.0,
+    "frequency_penalty": 0.0
+  },
+  "embedding_model": {
+    "name": "all-MiniLM-L6-v2-ggml-model-f16",
+    "type": "embedding",
+    "ctx_size": 384,
+    "batch_size": 512
+  },
+  "extras": {}
+}
+```
+</details>
+
+#### `/v1/search` endpoint
+
+`/v1/search` endpoint sends a query and gets the search results from the tavily search API using your supplied API key in the launch parameters.
+
+<details> <summary> Example </summary>
+
+You can use `curl` to test it on a new terminal:
+
+```bash
+curl -X POST http://localhost:8080/v1/search \
+    -H 'Content-Type: application/json' \
+    -d '{"query":"<your query>"}'
+```
+</details>
+
+## Setup
+
+Llama-RAG API server runs on WasmEdge Runtime. According to the operating system you are using, choose the installation command:
+
+<details> <summary> For macOS (apple silicon) </summary>
+
+```console
+# install WasmEdge-0.13.4 with wasi-nn-ggml plugin
+curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash -s -- --plugin wasi_nn-ggml
+
+# Assuming you use zsh (the default shell on macOS), run the following command to activate the environment
+source $HOME/.zshenv
+```
+
+</details>
+
+<details> <summary> For Ubuntu (>= 20.04) </summary>
+
+```console
+# install libopenblas-dev
+apt update && apt install -y libopenblas-dev
+
+# install WasmEdge-0.13.4 with wasi-nn-ggml plugin
+curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash -s -- --plugin wasi_nn-ggml
+
+# Assuming you use bash (the default shell on Ubuntu), run the following command to activate the environment
+source $HOME/.bashrc
+```
+
+</details>
+
+<details> <summary> For General Linux </summary>
+
+```console
+# install WasmEdge-0.13.4 with wasi-nn-ggml plugin
+curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash -s -- --plugin wasi_nn-ggml
+
+# Assuming you use bash (the default shell on Ubuntu), run the following command to activate the environment
+source $HOME/.bashrc
+```
+
+</details>
+
+## Build
+
+```bash
+# Clone the repository
+git clone https://github.com/suryyyansh/search-api-server.git
+
+# Change the working directory
+cd search-api-server
+
+# Build `search-api-server.wasm` with the `http` support only, or
+cargo build --target wasm32-wasi --release
+
+# Build `search-api-server.wasm` with both `http` and `https` support
+cargo build --target wasm32-wasi --release --features full
+
+# Copy the `search-api-server.wasm` to the root directory
+cp target/wasm32-wasi/release/search-api-server.wasm .
+```
+
+<details> <summary> To check the CLI options, </summary>
+
+To check the CLI options of the `search-api-server` wasm app, you can run the following command:
 
   ```bash
-  ...
-  E: Could not open lock file /var/lib/dpkg/lock-frontend - open (13: Permission denied)
-  E: Unable to acquire the dpkg frontend lock (/var/lib/dpkg/lock-frontend), are you root?
+  $ wasmedge -api-server.wasm -h
+    
+  LlamaEdge-Search API Server
+
+  Usage: search-api-server.wasm [OPTIONS] --prompt-template <PROMPT_TEMPLATE>
+
+  Options:
+    -m, --model-name <MODEL_NAME>
+            Sets names for chat and/or embedding models. To run both chat and embedding models, the names should be separated by comma without space, for example, '--model-name Llama-2-7b,all-minilm'. The first value is for the chat model, and the second is for the embedding model [default: default]
+    -a, --model-alias <MODEL_ALIAS>
+            Model aliases for chat and embedding models [default: default,embedding]
+    -c, --ctx-size <CTX_SIZE>
+            Sets context sizes for chat and/or embedding models. To run both chat and embedding models, the sizes should be separated by comma without space, for example, '--ctx-size 4096,384'. The first value is for the chat model, and the second is for the embedding model [default: 4096,384]
+    -b, --batch-size <BATCH_SIZE>
+            Sets batch sizes for chat and/or embedding models. To run both chat and embedding models, the sizes should be separated by comma without space, for example, '--batch-size 128,64'. The first value is for the chat model, and the second is for the embedding model [default: 512,512]
+    -p, --prompt-template <PROMPT_TEMPLATE>
+            Sets prompt templates for chat and/or embedding models, respectively. To run both chat and embedding models, the prompt templates should be separated by comma without space, for example, '--prompt-template llama-2-chat,embedding'. The first value is for the chat model, and the second is for the embedding model [possible values: llama-2-chat, llama-3-chat, mistral-instruct, mistral-tool, mistrallite, openchat, codellama-instruct, codellama-super-instruct, human-assistant, vicuna-1.0-chat, vicuna-1.1-chat, vicuna-llava, chatml, chatml-tool, baichuan-2, wizard-coder, zephyr, stablelm-zephyr, intel-neural, deepseek-chat, deepseek-coder, deepseek-chat-2, solar-instruct, phi-2-chat, phi-2-instruct, phi-3-chat, phi-3-instruct, gemma-instruct, octopus, glm-4-chat, groq-llama3-tool, embedding]
+    -r, --reverse-prompt <REVERSE_PROMPT>
+            Halt generation at PROMPT, return control
+    -n, --n-predict <N_PREDICT>
+            Number of tokens to predict [default: 1024]
+    -g, --n-gpu-layers <N_GPU_LAYERS>
+            Number of layers to run on the GPU [default: 100]
+        --no-mmap <NO_MMAP>
+            Disable memory mapping for file access of chat models [possible values: true, false]
+        --temp <TEMP>
+            Temperature for sampling [default: 1.0]
+        --top-p <TOP_P>
+            An alternative to sampling with temperature, called nucleus sampling, where the model considers the results of the tokens with top_p probability mass. 1.0 = disabled [default: 1.0]
+        --repeat-penalty <REPEAT_PENALTY>
+            Penalize repeat sequence of tokens [default: 1.1]
+        --presence-penalty <PRESENCE_PENALTY>
+            Repeat alpha presence penalty. 0.0 = disabled [default: 0.0]
+        --frequency-penalty <FREQUENCY_PENALTY>
+            Repeat alpha frequency penalty. 0.0 = disabled [default: 0.0]
+        --llava-mmproj <LLAVA_MMPROJ>
+            Path to the multimodal projector file
+        --socket-addr <SOCKET_ADDR>
+            Socket address of LlamaEdge API Server instance [default: 0.0.0.0:8080]
+        --web-ui <WEB_UI>
+            Root path for the Web UI files [default: chatbot-ui]
+        --log-prompts
+            Deprecated. Print prompt strings to stdout
+        --log-stat
+            Deprecated. Print statistics to stdout
+        --log-all
+            Deprecated. Print all log information to stdout
+        --enable-rag
+            Whether to enable RAG functionality (currently unimplemented)
+        --max-search-results <MAX_SEARCH_RESULTS>
+            Whether to enable RAG functionality (currently unimplemented) [default: 5]
+        --clip-every-result <CLIP_EVERY_RESULT>
+            size to clip every result to [default: 225]
+        --api-key <API_KEY>
+            Whether to enable RAG functionality (currently unimplemented) [default: ]
+    -h, --help
+            Print help
+    -V, --version
+            Print version
   ```
 
-A: This indicates that you are not logged in as `root`. Please try installing again using the `sudo` command:
+</details>
+
+## Execute
+
+LlamaEdge-Search API server supports 2 models: chat and embedding. The chat model is used for generating responses to user queries, while the embedding model is used for computing embeddings for user queries or file chunks. **The Search API Server requires at least a `chat` model**
+
+For the purpose of demonstration, we use the [Llama-2-7b-chat-hf-Q5_K_M.gguf](https://huggingface.co/second-state/Llama-2-7B-Chat-GGUF/resolve/main/Llama-2-7b-chat-hf-Q5_K_M.gguf) model as an example. Download these models and place them in the root directory of the repository.
+
+- Start an instance of LlamaEdge-Search API server
 
   ```bash
-  sudo apt update && sudo apt install -y libopenblas-dev
+  # Assume that the `rag-api-server.wasm` and the model files are in the root directory of the repository
+  wasmedge --dir .:. --nn-preload default:GGML:AUTO:Llama-2-7b-chat-hf-Q5_K_M.gguf \
+      --nn-preload embedding:GGML:AUTO:all-MiniLM-L6-v2-ggml-model-f16.gguf \
+      rag-api-server.wasm \
+      --ctx-size 4096,384 \
+      --prompt-template llama-2-chat \
+      --api-key "<insert-your-api-key>" # Only used if the search endpoint requires an api-key
+      --log-prompts \
+      --log-stat
   ```
 
-Q: After running the `wasmedge` command, you may receive the following error:
+## Usage Example
 
-  ```bash
-  [2023-10-02 14:30:31.227] [error] loading failed: invalid path, Code: 0x20
-  [2023-10-02 14:30:31.227] [error]     load library failed:libblas.so.3: cannot open shared object file: No such file or directory
-  [2023-10-02 14:30:31.227] [error] loading failed: invalid path, Code: 0x20
-  [2023-10-02 14:30:31.227] [error]     load library failed:libblas.so.3: cannot open shared object file: No such file or directory
-  unknown option: nn-preload
-  ```
+- [Execute](#execute) the server
 
-A: This suggests that your plugin installation was not successful. To resolve this issue, please attempt to install your desired plugin again.
+- Ask a question
 
-Q: After executing the `wasmedge` command, you might encounter the error message: `[WASI-NN] GGML backend: Error: unable to init model.`
+    ```bash
+    curl -X POST http://localhost:8080/v1/chat/completions \
+        -H 'accept:application/json' \
+        -H 'Content-Type: application/json' \
+        -d '{"messages":[{"role":"system", "content": "You are a helpful assistant."}, {"role":"user", "content": "What is the location of Paris, France along the Seine River?"}], "model":"Llama-2-7b-chat-hf-Q5_K_M"}'
+    ```
 
-A: This error signifies that the model setup was not successful. To resolve this issue, please verify the following:
+- Ask with search by either asking a question that results in the use of none of the embeddings, or prepend with "[SEARCH]". The following question results in the use of search with or without the "[SEARCH]" term.
 
-  1. Check if your model file and the WASM application are located in the same directory. The WasmEdge runtime requires them to be in the same location to locate the model file correctly.
-  2. Ensure that the model has been downloaded successfully. You can use the command `shasum -a 256 <gguf-filename>` to verify the model's sha256sum. Compare your result with the correct sha256sum available on [the Hugging Face page](https://huggingface.co/second-state/Dolphin-2.2-Yi-34B-GGUF/blob/main/dolphin-2.2-yi-34b-ggml-model-q4_0.gguf) for the model.
-
-<img width="1286" alt="image" src="https://github.com/second-state/llama-utils/assets/45785633/24286d8e-b438-4d1a-a443-62c1466e9992">
-
-## Credits
-
-The WASI-NN ggml plugin embedded [`llama.cpp`](git://github.com/ggerganov/llama.cpp.git@b1217) as its backend.
+    ```bash
+    curl -X POST http://localhost:8080/v1/chat/completions \
+        -H 'accept:application/json' \
+        -H 'Content-Type: application/json' \
+        -d '{"messages":[{"role":"system", "content": "You are a helpful assistant."}, {"role":"user", "content": "What's the current news?"}], "model":"Llama-2-7b-chat-hf-Q5_K_M"}'
+    ```
