@@ -1,6 +1,4 @@
-### Be sure to use your tavily API key using `--search-api-key`
-
-# LlamaEdge-RAG API Server
+# LlamaEdge-Search API Server
 
 <!-- @import "[TOC]" {cmd="toc" depthFrom=1 depthTo=6 orderedList=false} -->
 
@@ -268,21 +266,6 @@ If the command runs successfully, you should see the similar output as below in 
 ```
 </details>
 
-#### `/v1/search` endpoint
-
-`/v1/search` endpoint sends a query and gets the search results from the tavily search API using your supplied API key in the launch parameters.
-
-<details> <summary> Example </summary>
-
-You can use `curl` to test it on a new terminal:
-
-```bash
-curl -X POST http://localhost:8080/v1/search \
-    -H 'Content-Type: application/json' \
-    -d '{"query":"<your query>"}'
-```
-</details>
-
 ## Setup
 
 Llama-RAG API server runs on WasmEdge Runtime. According to the operating system you are using, choose the installation command:
@@ -417,7 +400,7 @@ To check the CLI options of the `search-api-server` wasm app, you can run the fo
 
 LlamaEdge-Search API server supports 2 models: chat and embedding. The chat model is used for generating responses to user queries, while the embedding model is used for computing embeddings for user queries or file chunks. **The Search API Server requires at least a `chat` model**
 
-For the purpose of demonstration, we use the [Llama-2-7b-chat-hf-Q5_K_M.gguf](https://huggingface.co/second-state/Llama-2-7B-Chat-GGUF/resolve/main/Llama-2-7b-chat-hf-Q5_K_M.gguf) model as an example. Download these models and place them in the root directory of the repository.
+For the purpose of demonstration, we use the [Llama-2-7b-chat-hf-Q5_K_M.gguf](https://huggingface.co/second-state/Llama-2-7B-Chat-GGUF/resolve/main/Llama-2-7b-chat-hf-Q5_K_M.gguf) chat model as an example. Download this model and place it in the root directory of the repository.
 
 - Start an instance of LlamaEdge-Search API server
 
