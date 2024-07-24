@@ -4,12 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-endpoints = { path = "../LlamaEdge/api-server/endpoints"}
-llama-core = { path = "../LlamaEdge/api-server/llama-core", features = ["logging", "search"] }
-chat-prompts = { path = "../LlamaEdge/api-server/chat-prompts"}
-#endpoints = { git = "https://github.com/suryyyansh/LlamaEdge.git", branch = "dev"}
-#llama-core = { git = "https://github.com/suryyyansh/LlamaEdge.git", branch = "dev", features = ["logging", "search"]}
-#chat-prompts = { git = "https://github.com/suryyyansh/LlamaEdge.git", branch = "dev"}
+#endpoints = { path = "../LlamaEdge/api-server/endpoints"}
+#llama-core = { path = "../LlamaEdge/api-server/llama-core", features = ["logging", "search"] }
+#chat-prompts = { path = "../LlamaEdge/api-server/chat-prompts"}
+endpoints = { git = "https://github.com/suryyyansh/LlamaEdge.git", branch = "dev"}
+llama-core = { git = "https://github.com/suryyyansh/LlamaEdge.git", branch = "dev", features = ["logging", "search"]}
+chat-prompts = { git = "https://github.com/suryyyansh/LlamaEdge.git", branch = "dev"}
 log = { version = "0.4.22", features = ["kv_serde", "std", "kv"] }
 futures = { version = "0.3.6", default-features = false, features = ["async-await", "std"] }
 either = "1.13.0"
