@@ -320,9 +320,6 @@ cd search-api-server
 # Build `search-api-server.wasm` with the `http` support only, or
 cargo build --target wasm32-wasi --release
 
-# Build `search-api-server.wasm` with both `http` and `https` support
-cargo build --target wasm32-wasi --release --features full
-
 # Copy the `search-api-server.wasm` to the root directory
 cp target/wasm32-wasi/release/search-api-server.wasm .
 ```
@@ -332,7 +329,7 @@ cp target/wasm32-wasi/release/search-api-server.wasm .
 To check the CLI options of the `search-api-server` wasm app, you can run the following command:
 
   ```bash
-  $ wasmedge -api-server.wasm -h
+  $ wasmedge search-api-server.wasm -h
     
   LlamaEdge-Search API Server
 
@@ -406,7 +403,7 @@ For the purpose of demonstration, we use the [Llama-2-7b-chat-hf-Q5_K_M.gguf](ht
   ```bash
   wasmedge --dir .:.  --env LLAMA_LOG="info" \
     --nn-preload default:GGML:AUTO:Llama-2-7b-chat-hf-Q5_K_M.gguf \
-    ./target/wasm32-wasip1/release/search-api-server.wasm \
+    search-api-server.wasm \
     --ctx-size 4096,384 \
     --prompt-template llama-2-chat \
     --model-name Llama-2-7b-chat-hf-Q5_K_M \
@@ -463,21 +460,23 @@ This is how it works:
   }
   ```
 
-5. The search results get included into the conversation as a System Message in `fn chat_completion_handler` in `backend/ggml.rs`.
+5.
+
+6. The search results get included into the conversation as a System Message in `fn chat_completion_handler` in `backend/ggml.rs`.
   ```rust
   let search_input = CustomSearchInput {
-      // assign fields
-      parser: custom_search_parser()
+    // assign fields
   }
   ```
 
-6. The we need to place the struct SearchConfig in `src/main.rs` with our own.
+7. The we need to place the struct SearchConfig in `src/main.rs` with our own.
  ```rust
  let search_config = SearchConfig {
-     // fields
+    // fields
+    parser: custom_search_parser()
  }
  ```
 
-7. Now, upon recompiling the server and running it, try asking the LLM a question.
+8. Now, upon recompiling the server and running it, try asking the LLM a question.
 
 *(In progress)*
