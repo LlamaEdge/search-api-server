@@ -422,7 +422,7 @@ For the purpose of demonstration, we use the [Llama-2-7b-chat-hf-Q5_K_M.gguf](ht
     curl -X POST http://localhost:8080/v1/chat/completions \
         -H 'accept:application/json' \
         -H 'Content-Type: application/json' \
-        -d '{"messages":[{"role":"system", "content": "You are a helpful assistant."}, {"role":"user", "content": "What's the current news?"}], "model":"Llama-2-7b-chat-hf-Q5_K_M"}'
+        -d '{"messages":[{"role":"system", "content": "You are a helpful assistant."}, {"role":"user", "content": "What\'s the current news?"}], "model":"Llama-2-7b-chat-hf-Q5_K_M"}'
     ```
 
 ## Modify
