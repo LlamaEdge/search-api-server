@@ -403,8 +403,8 @@ For the purpose of demonstration, we use the [Llama-2-7b-chat-hf-Q5_K_M.gguf](ht
 
 - Start an instance of LlamaEdge-Search API server
 
-  ```bashw
-wasmedge --dir .:.  --env LLAMA_LOG="info" \
+  ```bash
+  wasmedge --dir .:.  --env LLAMA_LOG="info" \
     --nn-preload default:GGML:AUTO:Llama-2-7b-chat-hf-Q5_K_M.gguf \
     ./target/wasm32-wasip1/release/search-api-server.wasm \
     --ctx-size 4096,384 \
@@ -412,7 +412,6 @@ wasmedge --dir .:.  --env LLAMA_LOG="info" \
     --model-name Llama-2-7b-chat-hf-Q5_K_M \
     --api-key <YOUR_API_KEY> #if required by an endpoint.
   ```
-
 ## Usage Example
 
 - [Execute](#execute) the server
