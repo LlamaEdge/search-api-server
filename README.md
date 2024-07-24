@@ -12,17 +12,16 @@
       - [`/v1/files` endpoint](#v1files-endpoint)
       - [`/v1/chunks` endpoint](#v1chunks-endpoint)
       - [`/v1/embeddings` endpoint](#v1embeddings-endpoint)
-      - [`/v1/create/rag` endpoint](#v1createrag-endpoint)
       - [`/v1/info` endpoint](#v1info-endpoint)
   - [Setup](#setup)
   - [Build](#build)
   - [Execute](#execute)
-
+  - [Modify](#modify)
 <!-- /code_chunk_output -->
 
 ## Introduction
 
-LlamaEdge-RAG API server provides a group of OpenAI-compatible web APIs for the Retrieval-Augmented Generation (RAG) applications. The server is implemented in WebAssembly (Wasm) and runs on [WasmEdge Runtime](https://github.com/WasmEdge/WasmEdge).
+LlamaEdge-Search API server is an extension of the Llama API Server with search capabilties. This server will run every query against search results obtained from the internet. The server is implemented in WebAssembly (Wasm) and runs on [WasmEdge Runtime](https://github.com/WasmEdge/WasmEdge).
 
 ### Endpoints
 
@@ -42,15 +41,15 @@ If the command runs successfully, you should see the similar output as below in 
 
 ```json
 {
-    "object":"list",
-    "data":[
-        {
-            "id":"llama-2-chat",
-            "created":1697084821,
-            "object":"model",
-            "owned_by":"Not specified"
-        }
-    ]
+  "object": "list",
+  "data": [
+    {
+      "id": "Llama-2-7b-chat-hf-Q5_K_M",
+      "created": 1721824510,
+      "object": "model",
+      "owned_by": "Not specified"
+    }
+  ]
 }
 ```
 
@@ -66,7 +65,7 @@ Ask a question using OpenAI's JSON message format.
 curl -X POST http://localhost:8080/v1/chat/completions \
     -H 'accept:application/json' \
     -H 'Content-Type: application/json' \
-    -d '{"messages":[{"role":"system", "content": "You are a helpful assistant."}, {"role":"user", "content": "Who is Robert Oppenheimer?"}], "model":"llama-2-chat"}'
+    -d '{"messages":[{"role":"system", "content": "You are a helpful assistant."}, {"role":"user", "content": "Who is Robert Oppenheimer?"}], "model":"Llama-2-7b-chat-hf-Q5_K_M"}'
 ```
 
 Here is the response.
@@ -82,7 +81,7 @@ Here is the response.
             "index":0,
             "message":{
                 "role":"assistant",
-                "content":"Robert Oppenheimer was an American theoretical physicist and director of the Manhattan Project, which developed the atomic bomb during World War II. He is widely regarded as one of the most important physicists of the 20th century and is known for his contributions to the development of quantum mechanics and the theory of the atomic nucleus. Oppenheimer was also a prominent figure in the post-war nuclear weapons debate, advocating for international control and regulation of nuclear weapons."
+                "content":"Ah, a most excellent question! Robert Oppenheimer (1904-1967) was an American theoretical physicist and director of the Manhattan Project, the secret research and development project that produced the atomic bomb during World War II. He is widely regarded as one of the most important physicists of the 20th century.\n\nOppenheimer was born in New York City and grew up in a family of intellectuals. He studied physics at Harvard University, where he earned his undergraduate degree, and later at Cambridge University, where he earned his PhD. After completing his education, he worked at several universities and research institutions, including the University of California, Berkeley, and Princeton University.\n\nOppenheimer's most significant contribution to physics was his work on quantum mechanics, particularly his development of the theory of quantum field theory. He also made important contributions to the study of nuclear physics and was one of the leaders of the Manhattan Project, which produced the atomic bomb during World War II.\n\nDespite his many accomplishments in physics, Oppenheimer is perhaps best known for his role in the development of the atomic bomb. He was a strong advocate for international cooperation on nuclear weapons and later became a vocal critic of the arms race between the United States and the Soviet Union.\n\nOppenheimer's life was marked by both personal and professional struggles. He was openly gay, which was illegal at the time, and he struggled with alcoholism and depression throughout his life. Despite these challenges, he remained a brilliant physicist and a passionate advocate for peaceful uses of nuclear energy until his death in 1967.\n\nToday, Oppenheimer is remembered as one of the most influential scientists of the 20th century, and his legacy continues to inspire new generations of physicists and peace activists around the world."
             },
             "finish_reason":"stop"
         }
@@ -99,14 +98,14 @@ Here is the response.
 
 #### `/v1/files` endpoint
 
-In RAG applications, uploading files is a necessary step.
+Upload files to to chunk them and compute their embeddings.
 
 <details> <summary> Example </summary>
 
 The following command upload a text file [paris.txt](https://huggingface.co/datasets/gaianet/paris/raw/main/paris.txt) to the API server via the `/v1/files` endpoint:
 
 ```bash
-curl -X POST http://127.0.0.1:8080/v1/files -F "file=@paris.txt"
+curl -X POST http://localhost:8080/v1/files -F "file=@paris.txt"
 ```
 
 If the command is successful, you should see the similar output as below in your terminal:
@@ -404,32 +403,21 @@ For the purpose of demonstration, we use the [Llama-2-7b-chat-hf-Q5_K_M.gguf](ht
 
 - Start an instance of LlamaEdge-Search API server
 
-  ```bash
-  # Assume that the `rag-api-server.wasm` and the model files are in the root directory of the repository
-  wasmedge --dir .:. --nn-preload default:GGML:AUTO:Llama-2-7b-chat-hf-Q5_K_M.gguf \
-      --nn-preload embedding:GGML:AUTO:all-MiniLM-L6-v2-ggml-model-f16.gguf \
-      rag-api-server.wasm \
-      --ctx-size 4096,384 \
-      --prompt-template llama-2-chat \
-      --api-key "<insert-your-api-key>" # Only used if the search endpoint requires an api-key
-      --log-prompts \
-      --log-stat
+  ```bashw
+wasmedge --dir .:.  --env LLAMA_LOG="info" \
+    --nn-preload default:GGML:AUTO:Llama-2-7b-chat-hf-Q5_K_M.gguf \
+    ./target/wasm32-wasip1/release/search-api-server.wasm \
+    --ctx-size 4096,384 \
+    --prompt-template llama-2-chat \
+    --model-name Llama-2-7b-chat-hf-Q5_K_M \
+    --api-key <YOUR_API_KEY> #if required by an endpoint.
   ```
 
 ## Usage Example
 
 - [Execute](#execute) the server
 
-- Ask a question
-
-    ```bash
-    curl -X POST http://localhost:8080/v1/chat/completions \
-        -H 'accept:application/json' \
-        -H 'Content-Type: application/json' \
-        -d '{"messages":[{"role":"system", "content": "You are a helpful assistant."}, {"role":"user", "content": "What is the location of Paris, France along the Seine River?"}], "model":"Llama-2-7b-chat-hf-Q5_K_M"}'
-    ```
-
-- Ask with search by either asking a question that results in the use of none of the embeddings, or prepend with "[SEARCH]". The following question results in the use of search with or without the "[SEARCH]" term.
+- Ask a question. Search results from the backend in use will be automatically fetched and used.
 
     ```bash
     curl -X POST http://localhost:8080/v1/chat/completions \
@@ -437,3 +425,7 @@ For the purpose of demonstration, we use the [Llama-2-7b-chat-hf-Q5_K_M.gguf](ht
         -H 'Content-Type: application/json' \
         -d '{"messages":[{"role":"system", "content": "You are a helpful assistant."}, {"role":"user", "content": "What's the current news?"}], "model":"Llama-2-7b-chat-hf-Q5_K_M"}'
     ```
+
+## Modify
+
+*(In progress)*
