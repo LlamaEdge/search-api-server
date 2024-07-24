@@ -1,7 +1,5 @@
-use llama_core::{
-    error::SearchError,
-    search::{SearchOutput, SearchResult},
-};
+use crate::error::ServerError;
+use llama_core::search::{SearchOutput, SearchResult};
 use serde::Serialize;
 
 #[allow(non_snake_case)]
@@ -13,13 +11,17 @@ pub struct LocalGoogleSearchInput {
 }
 
 #[allow(dead_code)]
-pub fn local_google_parser(raw_results: &serde_json::Value) -> Result<SearchOutput, SearchError> {
+pub fn local_google_parser(
+    raw_results: &serde_json::Value,
+) -> Result<SearchOutput, Box<dyn std::error::Error>> {
     let results_array = match raw_results.as_array() {
         Some(array) => array,
         None => {
             let msg = "No results returned from server";
             error!(target: "search_server", "google_parser: {}", msg);
-            return Err(SearchError::Response(msg.to_string()));
+            return Err(Box::new(ServerError::SearchConversionError(
+                msg.to_string(),
+            )));
         }
     };
 

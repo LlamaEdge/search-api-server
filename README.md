@@ -384,6 +384,8 @@ To check the CLI options of the `search-api-server` wasm app, you can run the fo
             size to clip every result to [default: 225]
         --api-key <API_KEY>
             Whether to enable RAG functionality (currently unimplemented) [default: ]
+        --search-prompt <SEARCH_PROMPT>
+            System prompt explaining to the LLM how to interpret search results [default: "Use the following search results from the internet to answer the user's query. They are provided by the system, not the user.\n\n"]
     -h, --help
             Print help
     -V, --version
@@ -430,7 +432,7 @@ This is how it works:
 
 1. Decide the search API (JSON based, supports HTTP) to use. There are many out there to choose from. We currently use Tavily by default.
 
-2. Crate a new file for the search endpoint and place it in it's own file under `search/`. Don't forget to `mod <filename>` it in `src/main.rs.`.
+2. Crate a new file for the search endpoint and place it in it's own file under `search/`. Don't forget to `mod <filename>` it.
 
 3. Next, we'll make a `fn` in the new file that converts the raw JSON output of the search endpoint for a given query to a `struct SearchOutput` object.
   ```rust
@@ -460,16 +462,14 @@ This is how it works:
   }
   ```
 
-5.
-
-6. The search results get included into the conversation as a System Message in `fn chat_completion_handler` in `backend/ggml.rs`.
+5. The search results get included into the conversation as a System Message in `fn chat_completion_handler` in `backend/ggml.rs`.
   ```rust
   let search_input = CustomSearchInput {
     // assign fields
   }
   ```
 
-7. The we need to place the struct SearchConfig in `src/main.rs` with our own.
+6. The we need to place the struct SearchConfig in `src/main.rs` with our own.
  ```rust
  let search_config = SearchConfig {
     // fields
@@ -477,6 +477,6 @@ This is how it works:
  }
  ```
 
-8. Now, upon recompiling the server and running it, try asking the LLM a question.
+7. Now, upon recompiling the server and running it, try asking the LLM a question.
 
 *(In progress)*

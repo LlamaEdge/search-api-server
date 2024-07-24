@@ -83,4 +83,7 @@ pub enum ServerError {
     /// Generic error returned while performing an operation
     #[error("{0}")]
     Operation(String),
+    /// Conversion error when converting to SearchOutput
+    #[error("{0}")]
+    SearchConversionError(String),
 }

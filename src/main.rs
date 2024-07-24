@@ -25,7 +25,7 @@ use llama_core::{
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, net::SocketAddr, path::PathBuf};
-use utils::LogLevel;
+use utils::{LogLevel, SearchArguments};
 
 type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
 
@@ -33,12 +33,14 @@ type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
 pub(crate) static SERVER_INFO: OnceCell<ServerInfo> = OnceCell::new();
 // default SearchConfig
 pub(crate) static SEARCH_CONFIG: OnceCell<SearchConfig> = OnceCell::new();
+// search related arguments passed on the command line
+pub(crate) static SEARCH_ARGUMENTS: OnceCell<SearchArguments> = OnceCell::new();
 
 // default socket address
 const DEFAULT_SOCKET_ADDRESS: &str = "0.0.0.0:8080";
 
 #[derive(Debug, Parser)]
-#[command(name = "LlamaEdge-Search API Server", version = env!("CARGO_PKG_VERSION"), author = env!("CARGO_PKG_AUTHORS"), about = "LlamaEdge-RAG API Server")]
+#[command(name = "LlamaEdge-Search API Server", version = env!("CARGO_PKG_VERSION"), author = env!("CARGO_PKG_AUTHORS"), about = "LlamaEdge-Search API Server")]
 struct Cli {
     /// Sets names for chat and/or embedding models. To run both chat and embedding models, the names should be separated by comma without space, for example, '--model-name Llama-2-7b,all-minilm'. The first value is for the chat model, and the second is for the embedding model.
     #[arg(short, long, value_delimiter = ',', default_value = "default")]
@@ -111,15 +113,21 @@ struct Cli {
     /// Deprecated. Print all log information to stdout
     #[arg(long)]
     log_all: bool,
-    /// Whether to enable RAG functionality (currently unimplemented)
-    #[arg(long)]
-    enable_rag: bool,
-    /// Whether to enable RAG functionality (currently unimplemented)
+    /// Maximum number search results to use.
     #[arg(long, default_value = "5")]
     max_search_results: u8,
-    /// Whether to enable RAG functionality (currently unimplemented)
+    /// Size to clip every result to.
+    #[arg(long, default_value = "225")]
+    clip_every_result: u8,
+    /// API key to be supplied to the endpoint, if supported.
     #[arg(long, default_value = "")]
     api_key: String,
+    /// System prompt explaining to the LLM how to interpret search results.
+    #[arg(
+        long,
+        default_value = "Use the following search results from the internet to answer the user's query. They are provided by the system, not the user.\n\n"
+    )]
+    search_prompt: String,
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -146,43 +154,19 @@ async fn main() -> Result<(), error::ServerError> {
     // parse the command line arguments
     let cli = Cli::parse();
 
-    if cli.enable_rag {
-        #[cfg(not(feature = "rag"))]
+    if cli.model_name.is_empty() || cli.model_name.len() > 2 {
         return Err(ServerError::ArgumentError(
-            "'--enable_rag' argument provided without the \"rag\" feature. Please enable the feature."
-                .to_owned(),
+            "Invalid setting for model name. For running chat or embedding model, please specify a single model name. For running both chat and embedding models, please specify two model names: the first one for chat model, the other for embedding model.".to_owned(),
         ));
-    }
-
-    if cli.enable_rag {
-        if cli.model_name.len() != 2 {
-            return Err(ServerError::ArgumentError(
-                "Enabling RAG functiionality with the LlamaEdge Search API server requires a chat model and an embedding model.".to_owned(),
-            ));
-        }
-    } else {
-        if cli.model_name.is_empty() || cli.model_name.len() > 2 {
-            return Err(ServerError::ArgumentError(
-                "Invalid setting for model name. For running chat or embedding model, please specify a single model name. For running both chat and embedding models, please specify two model names: the first one for chat model, the other for embedding model.".to_owned(),
-            ));
-        }
     }
 
     info!(target: "server_config", "model_name: {}", cli.model_name.join(","));
 
     // log model alias
-    if cli.enable_rag {
-        if cli.model_alias.len() != 2 {
-            return Err(ServerError::ArgumentError(
-                "LlamaEdge RAG API server requires two model aliases: one for chat model, one for embedding model.".to_owned(),
-            ));
-        }
-    } else {
-        if cli.model_alias.is_empty() || cli.model_alias.len() > 2 {
-            return Err(ServerError::ArgumentError(
-                "LlamaEdge API server requires at least one model alias (for the chat or embedding model), and two  .".to_owned(),
-            ));
-        }
+    if cli.model_alias.is_empty() || cli.model_alias.len() > 2 {
+        return Err(ServerError::ArgumentError(
+            "LlamaEdge Search API server requires at least one model alias (for the chat or embedding model), and two  .".to_owned(),
+        ));
     }
 
     // log model alias
@@ -195,18 +179,10 @@ async fn main() -> Result<(), error::ServerError> {
     info!(target: "server_config", "model_alias: {}", model_alias);
 
     // log context sizes
-    if cli.enable_rag {
-        if cli.ctx_size.len() != 2 {
-            return Err(ServerError::ArgumentError(
-            "LlamaEdge RAG API server requires two context sizes: one for chat model, one for embedding model.".to_owned(),
+    if cli.ctx_size.is_empty() || cli.ctx_size.len() > 2 {
+        return Err(ServerError::ArgumentError(
+            "LlamaEdge Search API server requires at least one ctx_size".to_owned(),
         ));
-        }
-    } else {
-        if cli.ctx_size.is_empty() || cli.ctx_size.len() > 2 {
-            return Err(ServerError::ArgumentError(
-                "LlamaEdge API server requires at least one ctx_size".to_owned(),
-            ));
-        }
     }
     let mut ctx_sizes_str = String::new();
     if cli.model_name.len() == 1 {
@@ -222,9 +198,9 @@ async fn main() -> Result<(), error::ServerError> {
     info!(target: "server_config", "ctx_size: {}", ctx_sizes_str);
 
     // log batch size
-    if cli.batch_size.len() != 2 {
+    if cli.batch_size.is_empty() || cli.batch_size.len() > 2 {
         return Err(ServerError::ArgumentError(
-            "LlamaEdge RAG API server requires two batch sizes: one for chat model, one for embedding model.".to_owned(),
+            "Invalid setting for batch size. For running chat model, please specify a single batch size. For running both chat and embedding models, please specify two batch sizes: the first one for chat model, the other for embedding model.".to_owned(),
         ));
     }
     let mut batch_sizes_str = String::new();
@@ -241,11 +217,12 @@ async fn main() -> Result<(), error::ServerError> {
     info!(target: "server_config", "batch_size: {}", batch_sizes_str);
 
     // log prompt template
-    if cli.prompt_template.len() != 2 {
+    if cli.prompt_template.is_empty() || cli.prompt_template.len() > 2 {
         return Err(ServerError::ArgumentError(
-            "LlamaEdge RAG API server requires two prompt templates: one for chat model, one for embedding model.".to_owned(),
+            "LlamaEdge Search API server requires prompt templates. For running chat or embedding model, please specify a single prompt template. For running both chat and embedding models, please specify two prompt templates: the first one for chat model, the other for embedding model.".to_owned(),
         ));
     }
+
     let prompt_template_str: String = cli
         .prompt_template
         .iter()
@@ -274,7 +251,7 @@ async fn main() -> Result<(), error::ServerError> {
     // log no_mmap
     if let Some(no_mmap) = &cli.no_mmap {
         info!(
-            "[INFO] Disable memory mapping for file access of chat models : {}",
+            "Disable memory mapping for file access of chat models : {}",
             no_mmap.clone()
         );
     }
@@ -475,7 +452,7 @@ async fn main() -> Result<(), error::ServerError> {
     let server_info = ServerInfo {
         node,
         server: ApiServer {
-            ty: "llama".to_string(),
+            ty: "llama search".to_string(),
             version: env!("CARGO_PKG_VERSION").to_string(),
             plugin_version,
             port,
@@ -511,9 +488,9 @@ async fn main() -> Result<(), error::ServerError> {
     //);
 
     let tavily_config = SearchConfig::new(
-        cli.api_key,
+        "tavily".to_owned(),
         cli.max_search_results,
-        1000,
+        cli.clip_every_result,
         "http://api.tavily.com/search".to_owned(),
         ContentType::JSON,
         ContentType::JSON,
@@ -526,86 +503,21 @@ async fn main() -> Result<(), error::ServerError> {
         .set(tavily_config)
         .map_err(|_| ServerError::Operation("Failed to set `SEARCH_CONFIG`.".to_owned()))?;
 
-    let server = Server::bind(&addr).serve(new_service);
+    let search_arguments = SearchArguments {
+        api_key: cli.api_key,
+        search_prompt: cli.search_prompt,
+    };
 
-    // println!(
-    //     "LlamaEdge API server listening on http://{}:{}",
-    //     addr.ip(),
-    //     addr.port()
-    // );
+    SEARCH_ARGUMENTS
+        .set(search_arguments)
+        .map_err(|_| ServerError::Operation("Failed to set `SEARCH_ARGUMENTS`.".to_owned()))?;
+
+    let server = Server::bind(&addr).serve(new_service);
 
     match server.await {
         Ok(_) => Ok(()),
         Err(e) => Err(ServerError::Operation(e.to_string())),
     }
-
-    //rag specific (TO BE IMPLEMENTED)
-
-    // log rag prompt
-    //if let Some(rag_prompt) = &cli.rag_prompt {
-    //    info!(target: "server_config", "rag_prompt: {}", rag_prompt);
-
-    //    GLOBAL_RAG_PROMPT.set(rag_prompt.clone()).map_err(|_| {
-    //        ServerError::Operation("Failed to set `GLOBAL_RAG_PROMPT`.".to_string())
-    //    })?;
-    //}
-
-    // log qdrant url
-    //if !is_valid_url(&cli.qdrant_url) {
-    //    let err_msg = format!(
-    //        "The URL of Qdrant REST API is invalid: {}.",
-    //        &cli.qdrant_url
-    //    );
-
-    //    // log
-    //    {
-    //        error!(target: "server_config", "qdrant_url: {}", err_msg);
-    //    }
-
-    //    return Err(ServerError::ArgumentError(err_msg));
-    //}
-    //if !qdrant_up(&cli.qdrant_url).await {
-    //    let err_msg = format!("[INFO] Qdrant not found at: {}", &cli.qdrant_url);
-    //    error!(target: "server_config", "qdrant_url: {}", err_msg);
-
-    //    return Err(ServerError::DatabaseError(err_msg));
-    //}
-
-    //// log qdrant url
-    //info!(target: "server_config", "qdrant_url: {}", &cli.qdrant_url);
-
-    //// log qdrant collection name
-    //info!(target: "server_config", "qdrant_collection_name: {}", &cli.qdrant_collection_name);
-
-    //// log qdrant limit
-    //info!(target: "server_config", "qdrant_limit: {}", &cli.qdrant_limit);
-
-    //// log qdrant score threshold
-    //info!(target: "server_config", "qdrant_score_threshold: {}", &cli.qdrant_score_threshold);
-
-    //// create qdrant config
-    //let qdrant_config = QdrantConfig {
-    //    url: cli.qdrant_url,
-    //    collection_name: cli.qdrant_collection_name,
-    //    limit: cli.qdrant_limit,
-    //    score_threshold: cli.qdrant_score_threshold,
-    //};
-
-    //// log chunk capacity
-    //info!(target: "server_config", "chunk_capacity: {}", &cli.chunk_capacity);
-
-    //// RAG policy
-    //info!(target: "server_config", "rag_policy: {}", &cli.policy);
-
-    //let mut policy = cli.policy;
-    //if policy == MergeRagContextPolicy::SystemMessage && !cli.prompt_template[0].has_system_prompt()
-    //{
-    //    warn!(target: "server_config", "{}", format!("The chat model does not support system message, while the '--policy' option sets to \"{}\". Update the RAG policy to {}.", cli.policy, MergeRagContextPolicy::LastUserMessage));
-
-    //    policy = MergeRagContextPolicy::LastUserMessage;
-    //}
-
-    //Ok(())
 }
 
 async fn handle_request(
@@ -711,13 +623,6 @@ pub(crate) struct ServerInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     embedding_model: Option<ModelConfig>,
     extras: HashMap<String, String>,
-    //version: String,
-    //plugin_version: String,
-    //port: String,
-    //#[serde(flatten)]
-    //rag_config: RagConfig,
-    //#[serde(flatten)]
-    //qdrant_config: QdrantConfig,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -1,6 +1,6 @@
-//use crate::google_search::GoogleSearchInput;
+//use crate::google_search;
 use crate::search::tavily_search;
-use crate::{error, utils::gen_chat_id, SEARCH_CONFIG, SERVER_INFO};
+use crate::{error, utils::gen_chat_id, SEARCH_ARGUMENTS, SEARCH_CONFIG, SERVER_INFO};
 use endpoints::{
     chat::{
         ChatCompletionRequest, ChatCompletionRequestMessage, ChatCompletionSystemMessage,
@@ -24,7 +24,7 @@ use std::{
 };
 use walkdir::{DirEntry, WalkDir};
 
-/// List all models available.
+/// List all models available.e
 pub(crate) async fn models_handler() -> Response<Body> {
     // log
     info!(target: "models_handler", "Handling the coming model list request.");
@@ -314,6 +314,13 @@ pub(crate) async fn chat_completions_handler(mut req: Request<Body>) -> Response
     let id = chat_request.user.clone().unwrap();
 
     // SEARCH HERE
+
+    let search_arguments = match SEARCH_ARGUMENTS.get() {
+        Some(sa) => sa,
+        None => {
+            return error::internal_server_error("Failed to get `SEARCH_ARGUMENTS`. Was it set?");
+        }
+    };
     match chat_request
         .messages
         .get(chat_request.messages.len() - 1)
@@ -348,7 +355,7 @@ pub(crate) async fn chat_completions_handler(mut req: Request<Body>) -> Response
             };
 
             let search_input = tavily_search::TavilySearchInput {
-                api_key: search_config.search_engine.clone(),
+                api_key: search_arguments.api_key.to_owned(),
                 include_answer: false,
                 include_images: false,
                 query: user_message_content,
@@ -369,8 +376,7 @@ pub(crate) async fn chat_completions_handler(mut req: Request<Body>) -> Response
                     }
                 };
 
-            let mut search_output_results: String =
-                "Use the following context to answer the user's question:\n\n".to_owned();
+            let mut search_output_results: String = search_arguments.search_prompt.clone();
 
             for result in search_output.results {
                 search_output_results.push_str(result.text_content.as_str());
