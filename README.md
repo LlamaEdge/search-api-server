@@ -311,8 +311,8 @@ source $HOME/.bashrc
 ## Build
 
 ```bash
-# Clone the repository
-git clone https://github.com/suryyyansh/search-api-server.git
+# Clone the repository (dev branch)
+git clone https://github.com/suryyyansh/search-api-server.git --branch dev
 
 # Change the working directory
 cd search-api-server
