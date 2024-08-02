@@ -1,11 +1,7 @@
 //use crate::google_search;
-use crate::search::tavily_search;
-use crate::{error, utils::gen_chat_id, SEARCH_ARGUMENTS, SEARCH_CONFIG, SERVER_INFO};
+use crate::{error, utils::gen_chat_id, SERVER_INFO};
 use endpoints::{
-    chat::{
-        ChatCompletionRequest, ChatCompletionRequestMessage, ChatCompletionSystemMessage,
-        ChatCompletionUserMessageContent, ContentPart,
-    },
+    chat::ChatCompletionRequest,
     completions::CompletionRequest,
     embeddings::EmbeddingRequest,
     files::{DeleteFileStatus, FileObject, ListFilesResponse},
@@ -13,7 +9,6 @@ use endpoints::{
 };
 use futures_util::TryStreamExt;
 use hyper::{body::to_bytes, Body, Method, Request, Response};
-use llama_core::search::SearchOutput;
 use multipart::server::{Multipart, ReadEntry, ReadEntryResult};
 use multipart_2021 as multipart;
 use std::{
@@ -315,85 +310,11 @@ pub(crate) async fn chat_completions_handler(mut req: Request<Body>) -> Response
 
     // SEARCH HERE
 
-    let search_arguments = match SEARCH_ARGUMENTS.get() {
-        Some(sa) => sa,
-        None => {
-            return error::internal_server_error("Failed to get `SEARCH_ARGUMENTS`. Was it set?");
-        }
-    };
-    match chat_request
-        .messages
-        .get(chat_request.messages.len() - 1)
-        .unwrap()
-    {
-        ChatCompletionRequestMessage::User(ref message) => {
-            let search_config = match SEARCH_CONFIG.get() {
-                Some(sc) => sc,
-                None => {
-                    let err_msg = format!("Failed to obtain SEARCH_CONFIG. Was it set?");
-                    error!(target: "chat_completions_handler", "{}", &err_msg);
-
-                    return error::internal_server_error(err_msg);
-                }
-            };
-            info!(target: "chat_completions_handler", "performing search");
-
-            let user_message_content = match message.content() {
-                ChatCompletionUserMessageContent::Text(message) => message.to_owned(),
-                ChatCompletionUserMessageContent::Parts(parts) => {
-                    let mut message: String = "".to_owned();
-                    for part in parts {
-                        match part {
-                            ContentPart::Text(message_part) => {
-                                message.push_str(message_part.text());
-                            }
-                            ContentPart::Image(_) => {}
-                        }
-                    }
-                    message
-                }
-            };
-
-            let search_input = tavily_search::TavilySearchInput {
-                api_key: search_arguments.api_key.to_owned(),
-                include_answer: false,
-                include_images: false,
-                query: user_message_content,
-                max_results: search_config.max_search_results,
-                include_raw_content: false,
-                search_depth: "advanced".to_owned(),
-            };
-
-            let search_output: SearchOutput =
-                match search_config.perform_search(&search_input).await {
-                    Ok(search_output) => search_output,
-                    Err(e) => {
-                        let err_msg =
-                            format!("Failed to perform search on SEACH_CONFIG: {msg}", msg = e);
-                        error!(target: "chat_completions_handler", "{}", &err_msg);
-
-                        return error::internal_server_error(err_msg);
-                    }
-                };
-
-            let mut search_output_results: String = search_arguments.search_prompt.clone();
-
-            for result in search_output.results {
-                search_output_results.push_str(result.text_content.as_str());
-                search_output_results.push_str("\n\n");
-            }
-
-            let system_search_result_message =
-                ChatCompletionSystemMessage::new(search_output_results, None);
-            chat_request.messages.insert(
-                chat_request.messages.len() - 1,
-                ChatCompletionRequestMessage::System(system_search_result_message),
-            )
-        }
-        _ => {}
+    if let Err(e) = crate::search::insert_search_results(&mut chat_request).await {
+        return e;
     }
 
-    //SEARCH HERE
+    // SEARCH HERE
 
     // log user id
     info!(target: "chat_completions_handler", "user: {}", chat_request.user.clone().unwrap());

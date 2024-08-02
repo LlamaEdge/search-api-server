@@ -41,7 +41,7 @@ const DEFAULT_SOCKET_ADDRESS: &str = "0.0.0.0:8080";
 
 #[derive(Debug, Parser)]
 #[command(name = "LlamaEdge-Search API Server", version = env!("CARGO_PKG_VERSION"), author = env!("CARGO_PKG_AUTHORS"), about = "LlamaEdge-Search API Server")]
-struct Cli {
+pub struct Cli {
     /// Sets names for chat and/or embedding models. To run both chat and embedding models, the names should be separated by comma without space, for example, '--model-name Llama-2-7b,all-minilm'. The first value is for the chat model, and the second is for the embedding model.
     #[arg(short, long, value_delimiter = ',', default_value = "default")]
     model_name: Vec<String>,
@@ -117,17 +117,20 @@ struct Cli {
     #[arg(long, default_value = "5")]
     max_search_results: u8,
     /// Size to clip every result to.
-    #[arg(long, default_value = "225")]
-    clip_every_result: u8,
+    #[arg(long, default_value = "300")]
+    size_limit_per_result: u16,
     /// API key to be supplied to the endpoint, if supported.
     #[arg(long, default_value = "")]
     api_key: String,
-    /// System prompt explaining to the LLM how to interpret search results.
+    /// System prompt explut ChatCompletionRequest: &aining to the LLM how to interpret search results.
     #[arg(
         long,
-        default_value = "Use the following search results from the internet to answer the user's query. They are provided by the system, not the user.\n\n"
+        default_value = "You found the following search results on the internet. Use them to answer the user's query.\n\n"
     )]
     search_prompt: String,
+    /// API key to be supplied to the endpoint, if supported.
+    #[arg(long)]
+    summarize: bool,
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -156,7 +159,7 @@ async fn main() -> Result<(), error::ServerError> {
 
     if cli.model_name.is_empty() || cli.model_name.len() > 2 {
         return Err(ServerError::ArgumentError(
-            "Invalid setting for model name. For running chat or embedding model, please specify a single model name. For running both chat and embedding models, please specify two model names: the first one for chat model, the other for embedding model.".to_owned(),
+            "Invalid setting for model name. For running just the chat model, please specify a single model name. For running both chat and embedding models, please specify two model names: the first one for chat model, the other for embedding model.".to_owned(),
         ));
     }
 
@@ -165,7 +168,8 @@ async fn main() -> Result<(), error::ServerError> {
     // log model alias
     if cli.model_alias.is_empty() || cli.model_alias.len() > 2 {
         return Err(ServerError::ArgumentError(
-            "LlamaEdge Search API server requires at least one model alias (for the chat or embedding model), and two  .".to_owned(),
+            "LlamaEdge Search API server requires at least one model alias for the chat model, or two for both the chat and embedding models."
+                .to_owned(),
         ));
     }
 
@@ -324,7 +328,7 @@ async fn main() -> Result<(), error::ServerError> {
                 .with_repeat_penalty(cli.repeat_penalty)
                 .with_presence_penalty(cli.presence_penalty)
                 .with_frequency_penalty(cli.frequency_penalty)
-                .with_reverse_prompt(cli.reverse_prompt)
+                .with_reverse_prompt(cli.reverse_prompt.clone())
                 .with_mmproj(cli.llava_mmproj.clone())
                 .enable_plugin_log(true)
                 .enable_debug_log(plugin_debug)
@@ -370,7 +374,7 @@ async fn main() -> Result<(), error::ServerError> {
         .with_repeat_penalty(cli.repeat_penalty)
         .with_presence_penalty(cli.presence_penalty)
         .with_frequency_penalty(cli.frequency_penalty)
-        .with_reverse_prompt(cli.reverse_prompt)
+        .with_reverse_prompt(cli.reverse_prompt.clone())
         .with_mmproj(cli.llava_mmproj.clone())
         .enable_plugin_log(true)
         .enable_debug_log(plugin_debug)
@@ -465,6 +469,9 @@ async fn main() -> Result<(), error::ServerError> {
         .set(server_info)
         .map_err(|_| ServerError::Operation("Failed to set `SERVER_INFO`.".to_string()))?;
 
+    // setup search items
+    setup_search(&cli)?;
+
     let new_service = make_service_fn(move |conn: &AddrStream| {
         // log socket address
         info!(target: "connection", "remote_addr: {}, local_addr: {}", conn.remote_addr().to_string(), conn.local_addr().to_string());
@@ -474,43 +481,6 @@ async fn main() -> Result<(), error::ServerError> {
 
         async move { Ok::<_, Error>(service_fn(move |req| handle_request(req, web_ui.clone()))) }
     });
-
-    //let google_config = SearchConfig::new(
-    //    "google".to_owned(),
-    //    cli.max_search_results,
-    //    1000,
-    //    "http://localhost:3000/search".to_owned(),
-    //    ContentType::JSON,
-    //    ContentType::JSON,
-    //    "POST".to_owned(),
-    //    None,
-    //    google_parser,
-    //);
-
-    let tavily_config = SearchConfig::new(
-        "tavily".to_owned(),
-        cli.max_search_results,
-        cli.clip_every_result,
-        "http://api.tavily.com/search".to_owned(),
-        ContentType::JSON,
-        ContentType::JSON,
-        "POST".to_owned(),
-        None,
-        tavily_search::tavily_parser,
-    );
-
-    SEARCH_CONFIG
-        .set(tavily_config)
-        .map_err(|_| ServerError::Operation("Failed to set `SEARCH_CONFIG`.".to_owned()))?;
-
-    let search_arguments = SearchArguments {
-        api_key: cli.api_key,
-        search_prompt: cli.search_prompt,
-    };
-
-    SEARCH_ARGUMENTS
-        .set(search_arguments)
-        .map_err(|_| ServerError::Operation("Failed to set `SEARCH_ARGUMENTS`.".to_owned()))?;
 
     let server = Server::bind(&addr).serve(new_service);
 
@@ -609,6 +579,39 @@ fn static_response(path_str: &str, root: String) -> Response<Body> {
                 .unwrap()
         }
     }
+}
+
+/// Setup the search context for the server
+fn setup_search(cli: &Cli) -> Result<(), error::ServerError> {
+    // by default, we will use Tavily.
+    let tavily_config = llama_core::search::SearchConfig::new(
+        "tavily".to_owned(),
+        cli.max_search_results,
+        cli.size_limit_per_result,
+        "https://api.tavily.com/search".to_owned(),
+        ContentType::JSON,
+        ContentType::JSON,
+        "POST".to_owned(),
+        None,
+        tavily_search::tavily_parser,
+        None,
+        None,
+    );
+
+    SEARCH_CONFIG
+        .set(tavily_config)
+        .map_err(|_| ServerError::Operation("Failed to set `SEARCH_CONFIG`.".to_owned()))?;
+
+    let search_arguments = SearchArguments {
+        api_key: cli.api_key.clone(),
+        search_prompt: cli.search_prompt.clone(),
+        summarize: cli.summarize,
+    };
+
+    SEARCH_ARGUMENTS
+        .set(search_arguments)
+        .map_err(|_| ServerError::Operation("Failed to set `SEARCH_ARGUMENTS`.".to_owned()))?;
+    Ok(())
 }
 
 #[derive(Debug, Serialize, Deserialize)]
