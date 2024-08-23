@@ -6,7 +6,7 @@ pub(crate) fn gen_chat_id() -> String {
 
 /// Search related items that aren't directly supported by SearchConfig
 pub(crate) struct SearchArguments {
-    /// API key to be supplied to the endpoint, if supported.
+    /// API key to be supplied to the endpoint, if supported. Not used by Bing.
     pub(crate) api_key: String,
     /// System prompt explaining to the LLM how to interpret search results.
     pub(crate) search_prompt: String,

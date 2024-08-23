@@ -6,7 +6,7 @@ mod error;
 mod search;
 mod utils;
 
-use crate::search::tavily_search;
+use crate::search::*;
 use anyhow::Result;
 use chat_prompts::PromptTemplateType;
 use clap::Parser;
@@ -584,6 +584,7 @@ fn static_response(path_str: &str, root: String) -> Response<Body> {
 /// Setup the search context for the server
 fn setup_search(cli: &Cli) -> Result<(), error::ServerError> {
     // by default, we will use Tavily.
+
     let tavily_config = llama_core::search::SearchConfig::new(
         "tavily".to_owned(),
         cli.max_search_results,
@@ -601,6 +602,30 @@ fn setup_search(cli: &Cli) -> Result<(), error::ServerError> {
     SEARCH_CONFIG
         .set(tavily_config)
         .map_err(|_| ServerError::Operation("Failed to set `SEARCH_CONFIG`.".to_owned()))?;
+
+    // Bing Search:
+    //
+    // let mut additional_headers = HashMap::new();
+    // additional_headers.insert("Ocp-Apim-Subscription-Key".to_string(), cli.api_key.clone());
+    //
+    // let bing_config = llama_core::search::SearchConfig::new(
+    //     "bing".to_owned(),
+    //     cli.max_search_results,
+    //     cli.size_limit_per_result,
+    //     // use of https requires the "full" or "https" feature
+    //     "https://api.bing.microsoft.com/v7.0/search".to_owned(),
+    //     ContentType::JSON,
+    //     ContentType::JSON,
+    //     "GET".to_owned(),
+    //     Some(additional_headers),
+    //     bing_search::bing_parser,
+    //     None,
+    //     None,
+    // );
+    //
+    // SEARCH_CONFIG
+    //     .set(bing_config)
+    //     .map_err(|_| ServerError::Operation("Failed to set `SEARCH_CONFIG`.".to_owned()))?;
 
     let search_arguments = SearchArguments {
         api_key: cli.api_key.clone(),

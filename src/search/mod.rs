@@ -1,3 +1,4 @@
+pub mod bing_search;
 pub mod local_google_search;
 pub mod tavily_search;
 
@@ -47,16 +48,25 @@ pub(crate) async fn insert_search_results(
             }
         };
 
-        // set search input.
+        // Tavily search input:
+
         let search_input = tavily_search::TavilySearchInput {
             api_key: search_arguments.api_key.to_owned(),
             include_answer: false,
             include_images: false,
-            query: user_message_content,
+            query: user_message_content.clone(),
             max_results: search_config.max_search_results,
             include_raw_content: false,
             search_depth: "advanced".to_owned(),
         };
+
+        // Bing search input:
+        //
+        // let search_input = bing_search::BingSearchInput {
+        //     count: search_config.max_search_results,
+        //     q: user_message_content.clone(),
+        //     responseFilter: "Webpages".to_string(),
+        // };
 
         // Prepare the final `results` string for use as input.
         let mut results = search_arguments.search_prompt.clone();
