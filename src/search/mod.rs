@@ -68,6 +68,14 @@ pub(crate) async fn insert_search_results(
         //     responseFilter: "Webpages".to_string(),
         // };
 
+        // Local search server search input:
+        //
+        // let search_input = local_google_search::LocalGoogleSearchInput {
+        //     term: user_message_content.clone(),
+        //     engine: "google".to_string(),
+        //     maxSearchResults: search_config.max_search_results,
+        // };
+
         // Prepare the final `results` string for use as input.
         let mut results = search_arguments.search_prompt.clone();
 

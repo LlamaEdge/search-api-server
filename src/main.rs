@@ -25,6 +25,7 @@ use llama_core::{
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, net::SocketAddr, path::PathBuf};
+use tokio::net::TcpListener;
 use utils::{LogLevel, SearchArguments};
 
 type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
@@ -152,7 +153,7 @@ async fn main() -> Result<(), error::ServerError> {
     log::set_max_level(log_level.into());
 
     // log the version of the server
-    info!(target: "server_config", "server_version: {}", env!("CARGO_PKG_VERSION"));
+    info!(target: "stdout", "server_version: {}", env!("CARGO_PKG_VERSION"));
 
     // parse the command line arguments
     let cli = Cli::parse();
@@ -163,7 +164,7 @@ async fn main() -> Result<(), error::ServerError> {
         ));
     }
 
-    info!(target: "server_config", "model_name: {}", cli.model_name.join(","));
+    info!(target: "stdout", "model_name: {}", cli.model_name.join(","));
 
     // log model alias
     if cli.model_alias.is_empty() || cli.model_alias.len() > 2 {
@@ -180,7 +181,7 @@ async fn main() -> Result<(), error::ServerError> {
     } else if cli.model_alias.len() == 2 {
         model_alias = cli.model_alias.join(",").to_string();
     }
-    info!(target: "server_config", "model_alias: {}", model_alias);
+    info!(target: "stdout", "model_alias: {}", model_alias);
 
     // log context sizes
     if cli.ctx_size.is_empty() || cli.ctx_size.len() > 2 {
@@ -199,7 +200,7 @@ async fn main() -> Result<(), error::ServerError> {
             .collect::<Vec<String>>()
             .join(",");
     }
-    info!(target: "server_config", "ctx_size: {}", ctx_sizes_str);
+    info!(target: "stdout", "ctx_size: {}", ctx_sizes_str);
 
     // log batch size
     if cli.batch_size.is_empty() || cli.batch_size.len() > 2 {
@@ -218,7 +219,7 @@ async fn main() -> Result<(), error::ServerError> {
             .collect::<Vec<String>>()
             .join(",");
     }
-    info!(target: "server_config", "batch_size: {}", batch_sizes_str);
+    info!(target: "stdout", "batch_size: {}", batch_sizes_str);
 
     // log prompt template
     if cli.prompt_template.is_empty() || cli.prompt_template.len() > 2 {
@@ -233,7 +234,7 @@ async fn main() -> Result<(), error::ServerError> {
         .map(|n| n.to_string())
         .collect::<Vec<String>>()
         .join(",");
-    info!(target: "server_config", "prompt_template: {}", prompt_template_str);
+    info!(target: "stdout", "prompt_template: {}", prompt_template_str);
 
     if cli.model_name.len() != cli.prompt_template.len() {
         return Err(ServerError::ArgumentError(
@@ -243,14 +244,14 @@ async fn main() -> Result<(), error::ServerError> {
 
     // log reverse prompt
     if let Some(reverse_prompt) = &cli.reverse_prompt {
-        info!(target: "server_config", "reverse_prompt: {}", reverse_prompt);
+        info!(target: "stdout", "reverse_prompt: {}", reverse_prompt);
     }
 
     // log n_predict
-    info!(target: "server_config", "n_predict: {}", cli.n_predict);
+    info!(target: "stdout", "n_predict: {}", cli.n_predict);
 
     // log n_gpu_layers
-    info!(target: "server_config", "n_gpu_layers: {}", cli.n_gpu_layers);
+    info!(target: "stdout", "n_gpu_layers: {}", cli.n_gpu_layers);
 
     // log no_mmap
     if let Some(no_mmap) = &cli.no_mmap {
@@ -261,23 +262,23 @@ async fn main() -> Result<(), error::ServerError> {
     }
 
     // log temperature
-    info!(target: "server_config", "temp: {}", cli.temp);
+    info!(target: "stdout", "temp: {}", cli.temp);
 
     // log top-p sampling
-    info!(target: "server_config", "top_p: {}", cli.top_p);
+    info!(target: "stdout", "top_p: {}", cli.top_p);
 
     // repeat penalty
-    info!(target: "server_config", "repeat_penalty: {}", cli.repeat_penalty);
+    info!(target: "stdout", "repeat_penalty: {}", cli.repeat_penalty);
 
     // log presence penalty
-    info!(target: "server_config", "presence_penalty: {}", cli.presence_penalty);
+    info!(target: "stdout", "presence_penalty: {}", cli.presence_penalty);
 
     // log frequency penalty
-    info!(target: "server_config", "frequency_penalty: {}", cli.frequency_penalty);
+    info!(target: "stdout", "frequency_penalty: {}", cli.frequency_penalty);
 
     // log multimodal projector
     if let Some(llava_mmproj) = &cli.llava_mmproj {
-        info!(target: "server_config", "llava_mmproj: {}", llava_mmproj.clone());
+        info!(target: "stdout", "llava_mmproj: {}", llava_mmproj.clone());
     }
 
     // initialize the core context
@@ -432,7 +433,7 @@ async fn main() -> Result<(), error::ServerError> {
         build_number = plugin_info.build_number,
         commit_id = plugin_info.commit_id,
     );
-    info!(target: "server_config", "plugin_ggml_version: {}", plugin_version);
+    info!(target: "stdout", "plugin_ggml_version: {}", plugin_version);
 
     // socket address
     let addr = cli
@@ -442,14 +443,14 @@ async fn main() -> Result<(), error::ServerError> {
     let port = addr.port().to_string();
 
     // log socket address
-    info!(target: "server_config", "socket_address: {}", addr.to_string());
+    info!(target: "stdout", "socket_address: {}", addr.to_string());
 
     // get the environment variable `NODE_VERSION`
     // Note that this is for satisfying the requirement of `gaianet-node` project.
     let node = std::env::var("NODE_VERSION").ok();
     if node.is_some() {
         // log node version
-        info!(target: "server_config", "gaianet_node_version: {}", node.as_ref().unwrap());
+        info!(target: "stdout", "gaianet_node_version: {}", node.as_ref().unwrap());
     }
 
     // create server info
@@ -474,7 +475,7 @@ async fn main() -> Result<(), error::ServerError> {
 
     let new_service = make_service_fn(move |conn: &AddrStream| {
         // log socket address
-        info!(target: "connection", "remote_addr: {}, local_addr: {}", conn.remote_addr().to_string(), conn.local_addr().to_string());
+        info!(target: "stdout", "remote_addr: {}, local_addr: {}", conn.remote_addr().to_string(), conn.local_addr().to_string());
 
         // web ui
         let web_ui = cli.web_ui.to_string_lossy().to_string();
@@ -482,7 +483,11 @@ async fn main() -> Result<(), error::ServerError> {
         async move { Ok::<_, Error>(service_fn(move |req| handle_request(req, web_ui.clone()))) }
     });
 
-    let server = Server::bind(&addr).serve(new_service);
+    let tcp_listener = TcpListener::bind(addr).await.unwrap();
+    let server = Server::from_tcp(tcp_listener.into_std().unwrap())
+        .unwrap()
+        .serve(new_service);
+    //let server = Server::bind(&addr).serve(new_service);
 
     match server.await {
         Ok(_) => Ok(()),
@@ -512,9 +517,9 @@ async fn handle_request(
                 None => 0,
             };
 
-            info!(target: "request", "method: {}, endpoint: {}, http_version: {}, content-length: {}", method, path, version, size);
+            info!(target: "stdout", "method: {}, endpoint: {}, http_version: {}, content-length: {}", method, path, version, size);
         } else {
-            info!(target: "request", "method: {}, endpoint: {}, http_version: {}", method, path, version);
+            info!(target: "stdout", "method: {}, endpoint: {}, http_version: {}", method, path, version);
         }
     }
 
@@ -538,7 +543,7 @@ async fn handle_request(
             let response_is_client_error = status_code.is_client_error();
             let response_is_server_error = status_code.is_server_error();
 
-            info!(target: "response", "version: {}, body_size: {}, status: {}, is_informational: {}, is_success: {}, is_redirection: {}, is_client_error: {}, is_server_error: {}", response_version, response_body_size, response_status, response_is_informational, response_is_success, response_is_redirection, response_is_client_error, response_is_server_error);
+            info!(target: "stdout", "version: {}, body_size: {}, status: {}, is_informational: {}, is_success: {}, is_redirection: {}, is_client_error: {}, is_server_error: {}", response_version, response_body_size, response_status, response_is_informational, response_is_success, response_is_redirection, response_is_client_error, response_is_server_error);
         } else {
             let response_version = format!("{:?}", response.version());
             let response_body_size: u64 = response.body().size_hint().lower();
@@ -549,7 +554,7 @@ async fn handle_request(
             let response_is_client_error = status_code.is_client_error();
             let response_is_server_error = status_code.is_server_error();
 
-            error!(target: "response", "version: {}, body_size: {}, status: {}, is_informational: {}, is_success: {}, is_redirection: {}, is_client_error: {}, is_server_error: {}", response_version, response_body_size, response_status, response_is_informational, response_is_success, response_is_redirection, response_is_client_error, response_is_server_error);
+            error!(target: "stdout", "version: {}, body_size: {}, status: {}, is_informational: {}, is_success: {}, is_redirection: {}, is_client_error: {}, is_server_error: {}", response_version, response_body_size, response_status, response_is_informational, response_is_success, response_is_redirection, response_is_client_error, response_is_server_error);
         }
     }
 
