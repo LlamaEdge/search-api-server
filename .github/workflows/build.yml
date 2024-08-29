@@ -54,15 +54,3 @@ jobs:
           cargo +nightly fmt --all -- --check
           cargo +nightly clippy --target wasm32-wasip1 -- -D warnings
           cargo build --target wasm32-wasip1 --release
-
-      - name: Build api-server for macos
-        id: build_api_server_macos
-        if: startsWith(matrix.os, 'macos')
-        env:
-          WASI_SDK_PATH: /Users/runner/work/rag-api-server/rag-api-server/wasi-sdk-24.0
-          CC: "/Users/runner/work/rag-api-server/rag-api-server/wasi-sdk-24.0/bin/clang --sysroot=/Users/runner/work/rag-api-server/rag-api-server/wasi-sdk-24.0/share/wasi-sysroot"
-          RUSTFLAGS: "--cfg wasmedge --cfg tokio_unstable"
-        run: |
-          cargo +nightly fmt --all -- --check
-          cargo +nightly clippy --target wasm32-wasip1 -- -D warnings
-          cargo build --target wasm32-wasip1 --release
