@@ -19,8 +19,6 @@ pub struct BingSearchInput {
 pub fn bing_parser(
     raw_results: &serde_json::Value,
 ) -> Result<SearchOutput, Box<dyn std::error::Error>> {
-    println!("\n\n\n RAW RESULTS: \n\n\n {}", raw_results.to_string());
-
     // parse webpages
     let web_pages_object = match raw_results["webPages"].is_object() {
         true => match raw_results["webPages"]["value"].as_array() {

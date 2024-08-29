@@ -23,7 +23,7 @@ pub(crate) async fn insert_search_results(
         let search_config = match SEARCH_CONFIG.get() {
             Some(sc) => sc,
             None => {
-                let err_msg = format!("Failed to obtain SEARCH_CONFIG. Was it set?");
+                let err_msg = "Failed to obtain SEARCH_CONFIG. Was it set?".to_string();
                 error!(target: "insert_search_results", "{}", &err_msg);
 
                 return Err(error::internal_server_error(err_msg));
