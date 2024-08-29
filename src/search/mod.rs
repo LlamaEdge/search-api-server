@@ -1,5 +1,4 @@
 pub mod bing_search;
-pub mod local_google_search;
 pub mod tavily_search;
 
 use crate::{error, SEARCH_ARGUMENTS, SEARCH_CONFIG};
@@ -66,14 +65,6 @@ pub(crate) async fn insert_search_results(
         //     count: search_config.max_search_results,
         //     q: user_message_content.clone(),
         //     responseFilter: "Webpages".to_string(),
-        // };
-
-        // Local search server search input:
-        //
-        // let search_input = local_google_search::LocalGoogleSearchInput {
-        //     term: user_message_content.clone(),
-        //     engine: "google".to_string(),
-        //     maxSearchResults: search_config.max_search_results,
         // };
 
         // Prepare the final `results` string for use as input.
