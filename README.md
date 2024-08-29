@@ -4,7 +4,7 @@
 
 <!-- code_chunk_output -->
 
-- [LlamaEdge-RAG API Server](#llamaedge-rag-api-server)
+- [LlamaEdge-Search API Server](#llamaedge-rag-api-server)
   - [Introduction](#introduction)
     - [Endpoints](#endpoints)
       - [`/v1/models` endpoint](#v1models-endpoint)
@@ -432,7 +432,7 @@ This is how it works:
 
 1. Decide the search API (JSON based, supports HTTP) to use. There are many out there to choose from. We currently use Tavily by default.
 
-2. Crate a new file for the search endpoint and place it in it's own file under `search/`. Don't forget to `mod <filename>` it.
+2. Crate a new file for the search endpoint and place it in it's own file under `src/search/`. Don't forget to `mod <filename>` it in `src/search/mod.rs`.
 
 3. Next, we'll make a `fn` in the new file that converts the raw JSON output of the search endpoint for a given query to a `struct SearchOutput` object.
   ```rust
@@ -462,21 +462,28 @@ This is how it works:
   }
   ```
 
-5. The search results get included into the conversation as a System Message in `fn chat_completion_handler` in `backend/ggml.rs`.
+5. To ensure the search results are included in the conversation, create an object out of your `CustomSearchInput` in the `insert_search_results()` function in `src/search/mod.rs` and ensure its included in all calls to `perform_search()` and `summarize_search()`.
   ```rust
   let search_input = CustomSearchInput {
     // assign fields
   }
+  ...
+    match search_config.summarize_search(&search_input).await {
+  ...
+    match search_config.perform_search(&search_input).await {
+  ...
   ```
 
-6. The we need to place the struct SearchConfig in `src/main.rs` with our own.
- ```rust
- let search_config = SearchConfig {
-    // fields
-    parser: custom_search_parser()
- }
- ```
+6. The we need to place the `SearchConfig` object in `setup_search()` function inside of `src/main.rs` with our own, and then update the global `SEARCH_CONFIG`.
+  ```rust
+  let search_config = SearchConfig {
+     // fields
+     parser: custom_search_parser()
+  }
+  SEARCH_CONFIG
+    .set(search_config)
+    .map_err(|_| ServerError::Operation("Failed to set `SEARCH_CONFIG`.".to_owned()))?;
+  ```
 
-7. Now, upon recompiling the server and running it, try asking the LLM a question.
-
-*(In progress)*
+7. That's it! Now, upon recompiling the server and executing it, try asking the LLM a question.
+8. *(optional)* Additionally, if your custom endpoint requires a extra fields to be included in the `SeachInput` that aren't already present in server, you can edit the `struct SearchArguments` to include them, and access them through the `SEARCH_ARGUMENTS`.. 
