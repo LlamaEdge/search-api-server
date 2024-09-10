@@ -329,8 +329,7 @@ cp target/wasm32-wasi/release/search-api-server.wasm .
 To check the CLI options of the `search-api-server` wasm app, you can run the following command:
 
   ```bash
-  $ wasmedge search-api-server.wasm -h
-    
+  $ wasmedge ./target/wasm32-wasip1/release/search-api-server.wasm -h
   LlamaEdge-Search API Server
 
   Usage: search-api-server.wasm [OPTIONS] --prompt-template <PROMPT_TEMPLATE>
@@ -345,7 +344,7 @@ To check the CLI options of the `search-api-server` wasm app, you can run the fo
     -b, --batch-size <BATCH_SIZE>
             Sets batch sizes for chat and/or embedding models. To run both chat and embedding models, the sizes should be separated by comma without space, for example, '--batch-size 128,64'. The first value is for the chat model, and the second is for the embedding model [default: 512,512]
     -p, --prompt-template <PROMPT_TEMPLATE>
-            Sets prompt templates for chat and/or embedding models, respectively. To run both chat and embedding models, the prompt templates should be separated by comma without space, for example, '--prompt-template llama-2-chat,embedding'. The first value is for the chat model, and the second is for the embedding model [possible values: llama-2-chat, llama-3-chat, mistral-instruct, mistral-tool, mistrallite, openchat, codellama-instruct, codellama-super-instruct, human-assistant, vicuna-1.0-chat, vicuna-1.1-chat, vicuna-llava, chatml, chatml-tool, baichuan-2, wizard-coder, zephyr, stablelm-zephyr, intel-neural, deepseek-chat, deepseek-coder, deepseek-chat-2, solar-instruct, phi-2-chat, phi-2-instruct, phi-3-chat, phi-3-instruct, gemma-instruct, octopus, glm-4-chat, groq-llama3-tool, embedding]
+            Sets prompt templates for chat and/or embedding models, respectively. To run both chat and embedding models, the prompt templates should be separated by comma without space, for example, '--prompt-template llama-2-chat,embedding'. The first value is for the chat model, and the second is for the embedding model [possible values: llama-2-chat, llama-3-chat, llama-3-tool, mistral-instruct, mistral-tool, mistrallite, openchat, codellama-instruct, codellama-super-instruct, human-assistant, vicuna-1.0-chat, vicuna-1.1-chat, vicuna-llava, chatml, chatml-tool, internlm-2-tool, baichuan-2, wizard-coder, zephyr, stablelm-zephyr, intel-neural, deepseek-chat, deepseek-coder, deepseek-chat-2, solar-instruct, phi-2-chat, phi-2-instruct, phi-3-chat, phi-3-instruct, gemma-instruct, octopus, glm-4-chat, groq-llama3-tool, mediatek-breeze, embedding, none]
     -r, --reverse-prompt <REVERSE_PROMPT>
             Halt generation at PROMPT, return control
     -n, --n-predict <N_PREDICT>
@@ -376,16 +375,16 @@ To check the CLI options of the `search-api-server` wasm app, you can run the fo
             Deprecated. Print statistics to stdout
         --log-all
             Deprecated. Print all log information to stdout
-        --enable-rag
-            Whether to enable RAG functionality (currently unimplemented)
         --max-search-results <MAX_SEARCH_RESULTS>
-            Whether to enable RAG functionality (currently unimplemented) [default: 5]
-        --clip-every-result <CLIP_EVERY_RESULT>
-            size to clip every result to [default: 225]
+            Maximum number search results to use [default: 5]
+        --size-limit-per-result <SIZE_LIMIT_PER_RESULT>
+            Size to clip every result to [default: 300]
         --api-key <API_KEY>
-            Whether to enable RAG functionality (currently unimplemented) [default: ]
+            API key to be supplied to the endpoint, if supported [default: ]
         --search-prompt <SEARCH_PROMPT>
-            System prompt explaining to the LLM how to interpret search results [default: "Use the following search results from the internet to answer the user's query. They are provided by the system, not the user.\n\n"]
+            System prompt explaining to the LLM how to interpret search results [default: "You found the following search results on the internet. Use them to answer the user's query.\n\n"]
+        --summarize
+            Whether to summarize search results before passing them onto the LLM, as opposed to passing the raw results themselves
     -h, --help
             Print help
     -V, --version
@@ -400,6 +399,8 @@ LlamaEdge-Search API server supports 2 models: chat and embedding. The chat mode
 
 For the purpose of demonstration, we use the [Llama-2-7b-chat-hf-Q5_K_M.gguf](https://huggingface.co/second-state/Llama-2-7B-Chat-GGUF/resolve/main/Llama-2-7b-chat-hf-Q5_K_M.gguf) chat model as an example. Download this model and place it in the root directory of the repository.
 
+The Search API Server uses Tavily as its default search API. Please remember to supply a tavily API key with the `--api-key` CLI parameter.
+
 - Start an instance of LlamaEdge-Search API server
 
   ```bash
@@ -409,7 +410,7 @@ For the purpose of demonstration, we use the [Llama-2-7b-chat-hf-Q5_K_M.gguf](ht
     --ctx-size 4096,384 \
     --prompt-template llama-2-chat \
     --model-name Llama-2-7b-chat-hf-Q5_K_M \
-    --api-key <YOUR_API_KEY> #if required by an endpoint.
+    --api-key <YOUR_API_KEY> # if required by an endpoint. The server uses Tavily by default, hence requires a Tavily API Key to function.
   ```
 ## Usage Example
 
