@@ -123,13 +123,13 @@ pub struct Cli {
     /// API key to be supplied to the endpoint, if supported.
     #[arg(long, default_value = "")]
     api_key: String,
-    /// System prompt explut ChatCompletionRequest: &aining to the LLM how to interpret search results.
+    /// System prompt explaining to the LLM how to interpret search results.
     #[arg(
         long,
         default_value = "You found the following search results on the internet. Use them to answer the user's query.\n\n"
     )]
     search_prompt: String,
-    /// API key to be supplied to the endpoint, if supported.
+    /// Whether to summarize search results before passing them onto the LLM, as opposed to passing the raw results themselves.
     #[arg(long)]
     summarize: bool,
 }
